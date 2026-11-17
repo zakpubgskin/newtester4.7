@@ -1898,7 +1898,11 @@ do
             _G.MWConfig.ModSkin = (v == true or v == 1)
             if _G.MWConfig.ModSkin then
                 startSkinModule()
-                if _G.AddOutfit then
+                -- V9.14: Defer injectAll to avoid 5-second hang on master ON
+                -- Lang player base na ho to 1 tick baad inject karein
+                if _G.AddOutfit and type(F.later) == "function" then
+                    pcall(function() F.later(0.3, function() pcall(_G.AddOutfit.injectAll) end) end)
+                elseif _G.AddOutfit then
                     pcall(_G.AddOutfit.injectAll)
                 end
             end
