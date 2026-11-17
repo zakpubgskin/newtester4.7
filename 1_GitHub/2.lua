@@ -1618,7 +1618,7 @@ end
 -- Feature rows, option values and authentication stay owned by this script.
 local g_vipserver_EnsureHackMenu
 do
-    local VERSION = "LunarSettings.V9.14.GrenadeWarn"
+    local VERSION = "LunarSettings.V9.13.AimClean"
     local function runtime()
         local state = _G.LunarNativeSettingsRuntime
         if type(state) ~= "table" then state = {}; _G.LunarNativeSettingsRuntime = state end
@@ -1782,15 +1782,7 @@ do
     end
     local V2={espAll(2),
         espSwitch(2,"Name","ESP Name"),espSwitch(2,"Line","ESP Line"),espSwitch(2,"Box","ESP Box (2D box)"),
-        espSwitch(2,"Health","ESP Health"),espSwitch(2,"Distance","ESP Distance"),espSwitch(2,"Skeleton","ESP Skeleton"),espSwitch(2,"Counter","ESP Counter"),
-        {Key="LunarGrenadeWarning",UI=AliasMap.Switcher,Text="Grenade/Smoke Warning",
-            GetFunc=function() return featureState().Settings.GrenadeWarning end,
-            SetFunc=function(c,v) featureState().Settings.GrenadeWarning=(value(c,v)==true or value(c,v)==1); featureState().MarkDirty(true); return true end}}
-    if sliderReady then
-        V2[#V2+1]=rangeItem("LunarGrenadeDist","Grenade Warning Distance (m)",10,300,"LunarGrenadeWarning",
-            function() return featureState().Settings.GrenadeDist end,
-            function(v) featureState().Settings.GrenadeDist=v; featureState().MarkDirty(true) end)
-    end
+        espSwitch(2,"Health","ESP Health"),espSwitch(2,"Distance","ESP Distance"),espSwitch(2,"Skeleton","ESP Skeleton"),espSwitch(2,"Counter","ESP Counter")}
     local Other={
         {Key="LunarWall",UI=AliasMap.Switcher,Text="Wall Hack (see through walls)",ExpandIndex=0,EventType=F.ESPSettingsEventType,EventID=3,GetFunc=function() return featureState().Settings.WallEnabled end,
             SetFunc=function(c,v) featureState().SetWall(value(c,v));return true end},
@@ -2042,7 +2034,7 @@ do
         state.Ready = state.Registered and state.HookInstalled == true
         if state.Ready then
             state.LastError = nil
-            _G.HackMenuInitialized = "VIP_SERVER_NATIVE_SETTINGS_V9_14"
+            _G.HackMenuInitialized = "VIP_SERVER_NATIVE_SETTINGS_V9_13"
         else state.LastError = "SETTINGS_UI_MANAGER_NOT_READY" end
         return state.Ready
     end
@@ -4663,130 +4655,6 @@ local function g_vipserver_ESPPrune(active,alive)
     for key in pairs(g_vipserver_ShotESP._BotCache) do if not alive[key] then g_vipserver_ShotESP._BotCache[key]=nil end end
 end
 
--- ============================================================
--- V9.13: Grenade / Smoke Warning - real-time alert for enemy throwables
--- ============================================================
-local GrenadeWarn={LastScan=-999,ScanInterval=0.50,NearestActor=nil,NearestDist=999,Widget=nil,Slot=nil}
-
-local function grenadeActorName(actor)
-    if not actor then return "" end
-    local name=""
-    pcall(function()
-        if actor.GetName then name=tostring(actor:GetName()) end
-        if name=="" and actor.GetClass and actor:GetClass() then
-            local c=actor:GetClass()
-            if c and c.GetName then name=tostring(c:GetName()) end
-        end
-    end)
-    return name
-end
-
-local function isGrenadeOrSmoke(actor)
-    local n=grenadeActorName(actor):lower()
-    return n:find("grenade") or n:find("smoke") or n:find("molotov") or n:find("throwable") or n:find("bomb")
-end
-
-local function getActorLoc(actor)
-    if not actor then return nil end
-    local loc=nil
-    pcall(function()
-        if actor.K2_GetActorLocation then loc=actor:K2_GetActorLocation()
-        elseif actor.GetActorLocation then loc=actor:GetActorLocation() end
-    end)
-    return loc
-end
-
-local function scanGrenades(me, maxDist)
-    if not me or not _G.g_vipserver_VIPShotESP.Enabled then return nil,999 end
-    local now=g_vipserver_ESPNow()
-    if now-GrenadeWarn.LastScan < GrenadeWarn.ScanInterval then
-        return GrenadeWarn.NearestActor, GrenadeWarn.NearestDist
-    end
-    GrenadeWarn.LastScan=now
-    GrenadeWarn.NearestActor=nil
-    GrenadeWarn.NearestDist=999
-
-    local myLoc=ESPShared.GetFrameRecord(me).Location
-    if not myLoc then return nil,999 end
-
-    local world=g_vipserver_ESPWorld()
-    local actors={}
-    pcall(function()
-        if GameplayStaticsESP and GameplayStaticsESP.GetAllActorsOfClass then
-            local ActorClass=import("Actor")
-            if ActorClass then
-                pcall(function() GameplayStaticsESP.GetAllActorsOfClass(world, ActorClass, actors) end)
-            end
-        end
-    end)
-
-    if type(actors)=="table" then
-        local count=0
-        for _,a in ipairs(actors) do
-            count=count+1
-            if count>200 then break end
-            if isGrenadeOrSmoke(a) then
-                local aloc=getActorLoc(a)
-                if aloc and ESPShared.Finite(aloc.X) and ESPShared.Finite(aloc.Y) and ESPShared.Finite(aloc.Z) then
-                    local d=math.sqrt((aloc.X-myLoc.X)^2+(aloc.Y-myLoc.Y)^2+(aloc.Z-myLoc.Z)^2)/100.0
-                    if d<=maxDist and d<GrenadeWarn.NearestDist then
-                        GrenadeWarn.NearestDist=d
-                        GrenadeWarn.NearestActor=a
-                    end
-                end
-            end
-        end
-    end
-
-    return GrenadeWarn.NearestActor, GrenadeWarn.NearestDist
-end
-
-local function ensureGrenadeWidget(canvas)
-    if GrenadeWarn.Widget and g_vipserver_ESPValid(GrenadeWarn.Widget) then return GrenadeWarn.Widget, GrenadeWarn.Slot end
-    local w=nil
-    pcall(function() w=CGame:NewObjectFromPath("/Script/UMG.TextBlock", canvas) end)
-    if not w then return nil,nil end
-    local slot=nil
-    pcall(function() slot=canvas:AddChildToCanvas(w) end)
-    if slot then
-        pcall(function() slot:SetAutoSize(false) end)
-        pcall(function() slot:SetZOrder(9999) end)
-    end
-    GrenadeWarn.Widget=w
-    GrenadeWarn.Slot=slot
-    return w, slot
-end
-
-local function showGrenadeWarning(canvas, pc, dist)
-    if not canvas or not pc then return end
-    local w,slot=ensureGrenadeWidget(canvas)
-    if not w then return end
-
-    local rawW,rawH=ESPShared.ViewSize(pc)
-    local cx,cy=rawW*0.5, rawH*0.15
-
-    pcall(function() w:SetText("⚠ GRENADE/SMOKE NEARBY! "..string.format("%.0fm",dist)) end)
-    pcall(function()
-        local f=w.Font
-        if f then f.Size=22 end
-    end)
-    pcall(function()
-        if slot then
-            slot:SetPosition(vector(cx-180, cy-40))
-            slot:SetSize(vector(360, 50))
-            slot:SetAutoSize(false)
-        end
-    end)
-    pcall(function() w:SetWidgetVisibility(UEnums.ESlateVisibility.Visible) end)
-end
-
-local function hideGrenadeWarning()
-    if GrenadeWarn.Widget then
-        pcall(function() GrenadeWarn.Widget:SetWidgetVisibility(UEnums.ESlateVisibility.Collapsed) end)
-    end
-end
-
-
 ESPShared.Events.Clearers[#ESPShared.Events.Clearers+1]=function(actor)
     ESPShared.Events.ClearIn(g_vipserver_ShotESP,g_vipserver_ESPPrune,actor)
 end
@@ -4939,17 +4807,6 @@ local function g_vipserver_ESPUpdate()
             end
         end
     end
-    -- V9.13: Grenade/Smoke Warning overlay
-    if settings and settings.GrenadeWarning then
-        local gw, gd = scanGrenades(me, settings.GrenadeDist or 50)
-        if gw and gd and gd < 999 then
-            showGrenadeWarning(canvas, pc, gd)
-        else
-            hideGrenadeWarning()
-        end
-    else
-        hideGrenadeWarning()
-    end
     g_vipserver_ESPPrune(active,alive)
 end
 
@@ -5096,9 +4953,6 @@ do
     -- V9.4: idle aim modes that work without firing.
     settings.AimSniperScope=settings.AimSniperScope==true
     settings.AimShotgun=settings.AimShotgun==true
-    -- V9.13: Grenade / Smoke warning (real-time alert for enemy throwables nearby)
-    settings.GrenadeWarning=settings.GrenadeWarning~=false
-    settings.GrenadeDist=number(settings.GrenadeDist,10,300,50)
     _G.g_Botmater_ESPOptions=_G.g_Botmater_ESPOptions or {}
     for _,key in ipairs({"Name","Line","Health","Distance","EnemyCounter"}) do
         if _G.g_Botmater_ESPOptions[key]==nil then _G.g_Botmater_ESPOptions[key]=false end
@@ -5127,11 +4981,11 @@ do
                         local val=payload:match("%f[%w_]"..key.."%s*=%s*([%d%.%-]+)")
                         if val then settings[key]=number(val,1,7,settings[key]) end
                     end
-                    for _,key in ipairs({"AimFOV","AimDist","EspRange","EspMaxTargets","GrenadeDist"}) do
+                    for _,key in ipairs({"AimFOV","AimDist","EspRange","EspMaxTargets"}) do
                         local val=payload:match("%f[%w_]"..key.."%s*=%s*([%d%.%-]+)")
                         if val then
-                            local lo=(key=="AimFOV" and 10) or (key=="AimDist" and 50) or (key=="GrenadeDist" and 10) or (key=="EspMaxTargets" and 5) or 400
-                            local hi=(key=="AimFOV" and 100) or (key=="AimDist" and 400) or (key=="GrenadeDist" and 300) or (key=="EspMaxTargets" and 64) or 1000
+                            local lo=(key=="AimFOV" and 10) or (key=="AimDist" and 50) or (key=="EspMaxTargets" and 5) or 400
+                            local hi=(key=="AimFOV" and 100) or (key=="AimDist" and 400) or (key=="EspMaxTargets" and 64) or 1000
                             settings[key]=number(val,lo,hi,settings[key])
                         end
                     end
@@ -5143,7 +4997,7 @@ do
                         local val=payload:match("%f[%w_]"..key.."%s*=%s*(%a+)")
                         if val=="true" or val=="false" then settings[key]=val=="true" end
                     end
-                    for _,key in ipairs({"AimSniperScope","AimShotgun","WallSafeMode","SkinSafeMode","KickControl","GrenadeWarning"}) do
+                    for _,key in ipairs({"AimSniperScope","AimShotgun","WallSafeMode","SkinSafeMode","KickControl"}) do
                         local val=payload:match("%f[%w_]"..key.."%s*=%s*(%a+)")
                         if val=="true" or val=="false" then settings[key]=val=="true" end
                     end
@@ -5180,8 +5034,8 @@ do
     F.Save=function(force)
         if not F.Dirty or not io or not io.open then return end
         local lines={"return {", "  IpadEnabled = "..tostring(_G.MWConfig.IpadView==true)..","}
-        for _,key in ipairs({"AimEnabled","WallEnabled","Aim2Enabled","MortarEnabled","IpadFOV","AimSpeed","AimTarget","WallVisible","WallOccluded","AimFOV","AimDist","EspRange","EspMaxTargets","KickAmount","GrenadeDist"}) do lines[#lines+1]="  "..key.." = "..tostring(settings[key]).."," end
-        for _,key in ipairs({"AimVisCheck","AimIgKnock","AimIgBot","AimSniperScope","AimShotgun","WallSafeMode","SkinSafeMode","KickControl","GrenadeWarning"}) do lines[#lines+1]="  "..key.." = "..tostring(settings[key]==true).."," end
+        for _,key in ipairs({"AimEnabled","WallEnabled","Aim2Enabled","MortarEnabled","IpadFOV","AimSpeed","AimTarget","WallVisible","WallOccluded","AimFOV","AimDist","EspRange","EspMaxTargets","KickAmount"}) do lines[#lines+1]="  "..key.." = "..tostring(settings[key]).."," end
+        for _,key in ipairs({"AimVisCheck","AimIgKnock","AimIgBot","AimSniperScope","AimShotgun","WallSafeMode","SkinSafeMode","KickControl"}) do lines[#lines+1]="  "..key.." = "..tostring(settings[key]==true).."," end
         for _,key in ipairs({"Name","Line","Health","Distance","EnemyCounter"}) do lines[#lines+1]="  V1_"..key.." = "..tostring(_G.g_Botmater_ESPOptions[key]==true).."," end
         for _,key in ipairs({"Name","Line","Box","Health","Distance","Skeleton","Counter"}) do lines[#lines+1]="  V2_"..key.." = "..tostring(_G.g_vipserver_ESPOptions[key]==true).."," end
         lines[#lines+1]="}"
