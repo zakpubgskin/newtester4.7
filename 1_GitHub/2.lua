@@ -1618,7 +1618,7 @@ end
 -- Feature rows, option values and authentication stay owned by this script.
 local g_vipserver_EnsureHackMenu
 do
-    local VERSION = "LunarSettings.V9.8.SkinSafe"
+    local VERSION = "LunarSettings.V9.10.MenuClear"
     local function runtime()
         local state = _G.LunarNativeSettingsRuntime
         if type(state) ~= "table" then state = {}; _G.LunarNativeSettingsRuntime = state end
@@ -1759,7 +1759,7 @@ do
     local function featureState() return _G.LunarFeatures end
     local function value(c,v) if v==nil then return c end return v end
     local function espAll(version)
-        return {Key="LunarV"..version.."_All",UI=AliasMap.Switcher,Text="All ESP",
+        return {Key="LunarV"..version.."_All",UI=AliasMap.Switcher,Text="All ESP (V"..version.." master)",
             LunarBulk=true,
             SwitcherText={"All On","All Off"},
             EventType=F.ESPSettingsEventType,EventID=F.ESPSettingsEventID,
@@ -1777,16 +1777,16 @@ do
             SetFunc=function(c,v) return featureState().SetESP(version,key,value(c,v)) end}
     end
     local V1={espAll(1)}
-    for _,entry in ipairs({{"Name","ESP NAME"},{"Line","ESP LINE"},{"Health","ESP HEALTH"},{"Distance","ESP DISTANCE"},{"EnemyCounter","ESP COUNTER"}}) do
+    for _,entry in ipairs({{"Name","ESP Name (enemy name)"},{"Line","ESP Line (line to enemy)"},{"Health","ESP Health (HP bar)"},{"Distance","ESP Distance (meter)"},{"EnemyCounter","ESP Counter (enemy count)"}}) do
         V1[#V1+1]=espSwitch(1,entry[1],entry[2])
     end
     local V2={espAll(2),
-        espSwitch(2,"Name","ESP NAME"),espSwitch(2,"Line","ESP LINE"),espSwitch(2,"Box","ESP BOX"),
-        espSwitch(2,"Health","ESP HEALTH"),espSwitch(2,"Distance","ESP DISTANCE"),espSwitch(2,"Skeleton","ESP SKELETON"),espSwitch(2,"Counter","ESP COUNTER")}
+        espSwitch(2,"Name","ESP Name"),espSwitch(2,"Line","ESP Line"),espSwitch(2,"Box","ESP Box (2D box)"),
+        espSwitch(2,"Health","ESP Health"),espSwitch(2,"Distance","ESP Distance"),espSwitch(2,"Skeleton","ESP Skeleton"),espSwitch(2,"Counter","ESP Counter")}
     local Other={
-        {Key="LunarWall",UI=AliasMap.Switcher,Text="Wall Hack",ExpandIndex=0,EventType=F.ESPSettingsEventType,EventID=3,GetFunc=function() return featureState().Settings.WallEnabled end,
+        {Key="LunarWall",UI=AliasMap.Switcher,Text="Wall Hack (see through walls)",ExpandIndex=0,EventType=F.ESPSettingsEventType,EventID=3,GetFunc=function() return featureState().Settings.WallEnabled end,
             SetFunc=function(c,v) featureState().SetWall(value(c,v));return true end},
-        {Key="LunarIpad",UI=AliasMap.Switcher,Text="iPad View",ExpandIndex=0,GetFunc=function() return _G.MWConfig.IpadView end,
+        {Key="LunarIpad",UI=AliasMap.Switcher,Text="iPad View (3-finger gyro)",ExpandIndex=0,GetFunc=function() return _G.MWConfig.IpadView end,
             SetFunc=function(c,v) featureState().SetIpad(value(c,v));return true end},
             -- V9.7: Aimbot rows moved to their own AIMBOT section below.
     }
@@ -1796,7 +1796,8 @@ do
         return {Key=key,UI=AliasMap.Slider,Text=label,Min=lo,Max=hi,ExpandHandle=parent,
             GetFunc=function() return get() end,
             SetFunc=function(c,v)
-                featureState()[set](value(c,v))
+                local v2=value(c,v)
+                if type(set)=="function" then set(v2) else featureState()[set](v2) end
                 featureState().Save(true)
                 return true
             end}
@@ -1808,43 +1809,80 @@ do
     -- V9.7: Aimbot ka apna alag section (AIMBOT tab). Rows flat hain taaki
     -- sab options bina expand kiye seedha dikhein.
     local Aim={}
-    Aim[#Aim+1]={Key="LunarAim",UI=AliasMap.Switcher,Text="Aimbot V1 (master)",
+    Aim[#Aim+1]={Key="LunarAim",UI=AliasMap.Switcher,Text="Aimbot V1 (Master - sab aim on/off)",
         EventType=F.AimSettingsEventType,EventID=F.AimSettingsEventID,
         GetFunc=function() return featureState().Settings.AimEnabled end,
         SetFunc=function(c,v) featureState().SetAim(value(c,v));return true end}
-    Aim[#Aim+1]={Key="LunarAimSniper",UI=AliasMap.Switcher,Text="Sniper scope aim",
+    Aim[#Aim+1]={Key="LunarAimSniper",UI=AliasMap.Switcher,Text="Sniper Scope Aim (head lock, no fire)",
         GetFunc=function() return featureState().Settings.AimSniperScope end,
         SetFunc=function(c,v) featureState().SetAimSniperScope(value(c,v));return true end}
-    Aim[#Aim+1]={Key="LunarAimShotgun",UI=AliasMap.Switcher,Text="Shotgun aim (no scope)",
+    Aim[#Aim+1]={Key="LunarAimShotgun",UI=AliasMap.Switcher,Text="Shotgun Aim (hipfire, no scope)",
         GetFunc=function() return featureState().Settings.AimShotgun end,
         SetFunc=function(c,v) featureState().SetAimShotgun(value(c,v));return true end}
     if sliderReady then
-        Aim[#Aim+1]=rangeItem("LunarAimSpeed","Aim speed",100,120,nil,
+        Aim[#Aim+1]=rangeItem("LunarAimSpeed","Aim Speed (smoothness)",100,120,nil,
             function() return featureState().Settings.AimSpeed end,"SetAimSpeed")
     end
-    Aim[#Aim+1]={Key="LunarAimTarget",UI=AliasMap.Switcher,Text="Aim target",
+    Aim[#Aim+1]={Key="LunarAimTarget",UI=AliasMap.Switcher,Text="Aim Target (bone select)",
         SwitcherText={"Head","Body","Leg"},SwitcherValue={1,2,3},
         GetFunc=function() return featureState().Settings.AimTarget end,
         SetFunc=function(c,v) featureState().SetAimTarget(value(c,v));return true end}
     if sliderReady then
-        Aim[#Aim+1]=rangeItem("LunarAimFOV","Aim FOV",10,100,nil,
+        Aim[#Aim+1]=rangeItem("LunarAimFOV","Aim FOV (lock circle)",10,100,nil,
             function() return featureState().Settings.AimFOV end,"SetAimFOV")
     end
     if sliderReady then
-        Aim[#Aim+1]=rangeItem("LunarAimDist","Aim distance",50,400,nil,
+        Aim[#Aim+1]=rangeItem("LunarAimDist","Aim Distance (max lock range)",50,400,nil,
             function() return featureState().Settings.AimDist end,"SetAimDist")
     end
-    Aim[#Aim+1]={Key="LunarAimVis",UI=AliasMap.Switcher,Text="Visible only",
+    Aim[#Aim+1]={Key="LunarAimVis",UI=AliasMap.Switcher,Text="Visible Only (wall check)",
         GetFunc=function() return featureState().Settings.AimVisCheck end,
         SetFunc=function(c,v) featureState().SetAimVisCheck(value(c,v));return true end}
-    Aim[#Aim+1]={Key="LunarAimKnock",UI=AliasMap.Switcher,Text="Ignore knocked",
+    Aim[#Aim+1]={Key="LunarAimKnock",UI=AliasMap.Switcher,Text="Ignore Knocked (no downed)",
         GetFunc=function() return featureState().Settings.AimIgKnock end,
         SetFunc=function(c,v) featureState().SetAimIgKnock(value(c,v));return true end}
-    Aim[#Aim+1]={Key="LunarAimBot",UI=AliasMap.Switcher,Text="Ignore bots",
+    Aim[#Aim+1]={Key="LunarAimBot",UI=AliasMap.Switcher,Text="Ignore Bots (real players only)",
         GetFunc=function() return featureState().Settings.AimIgBot end,
         SetFunc=function(c,v) featureState().SetAimIgBot(value(c,v));return true end}
+    -- V9.9: ADS only + kick (recoil) control.
+    Aim[#Aim+1]={Key="LunarAimAdsOnly",UI=AliasMap.Switcher,Text="ADS Only (hipfire aim band)",
+        GetFunc=function() return featureState().Settings.AimOnlyADS end,
+        SetFunc=function(c,v) featureState().SetAimOnlyADS(value(c,v));return true end}
+    Aim[#Aim+1]={Key="LunarKick",UI=AliasMap.Switcher,Text="Kick Control (recoil remove)",
+        ExpandIndex=0,EventType=F.AimSettingsEventType,EventID=F.AimSettingsEventID,
+        GetFunc=function() return featureState().Settings.KickControl end,
+        SetFunc=function(c,v) featureState().SetKickControl(value(c,v));return true end}
+    if sliderReady then
+        Aim[#Aim+1]=rangeItem("LunarKickAmt","Kick Amount (0=off, 100=max)",0,100,"LunarKick",
+            function() return featureState().Settings.KickAmount end,"SetKickAmount")
+    end
+    -- V9.9: manual scope tuning. Parent ON = neeche ki per-mode values global
+    -- Aim FOV / speed / range ki jagah use hoti hain.
+    Aim[#Aim+1]={Key="LunarAimManual",UI=AliasMap.Switcher,Text="Manual Scope (per-weapon FOV/speed)",
+        ExpandIndex=0,EventType=F.AimSettingsEventType,EventID=F.AimSettingsEventID,
+        GetFunc=function() return featureState().Settings.ScopeManual end,
+        SetFunc=function(c,v) featureState().SetAimManualMode(value(c,v));return true end}
+    if sliderReady then
+        local function manual(menuKey,settingKey,label,lo,hi)
+            return rangeItem(menuKey,label,lo,hi,"LunarAimManual",
+                function() return featureState().Settings[settingKey] end,
+                function(v) return featureState().SetAimManual(settingKey,v) end)
+        end
+        Aim[#Aim+1]=manual("LunarHipFOV","HipFOV","Hipfire FOV",10,100)
+        Aim[#Aim+1]=manual("LunarHipSpeed","HipSpeed","Hipfire Speed",100,120)
+        Aim[#Aim+1]=manual("LunarHipDist","HipDist","Hipfire Range",50,400)
+        Aim[#Aim+1]=manual("LunarAdsFOV","AdsFOV","ADS FOV",10,100)
+        Aim[#Aim+1]=manual("LunarAdsSpeed","AdsSpeed","ADS Speed",100,120)
+        Aim[#Aim+1]=manual("LunarAdsDist","AdsDist","ADS Range",50,400)
+        Aim[#Aim+1]=manual("LunarSniperFOV","SniperFOV","Sniper FOV",10,100)
+        Aim[#Aim+1]=manual("LunarSniperSpeed","SniperSpeed","Sniper Speed",100,120)
+        Aim[#Aim+1]=manual("LunarSniperDist","SniperDist","Sniper Range",50,400)
+        Aim[#Aim+1]=manual("LunarSgFOV","SgFOV","Shotgun FOV",10,100)
+        Aim[#Aim+1]=manual("LunarSgSpeed","SgSpeed","Shotgun Speed",100,120)
+        Aim[#Aim+1]=manual("LunarSgDist","SgDist","Shotgun Range",10,200)
+    end
     -- V9.3: ESP master switch + range slider.
-    Other[#Other+1]={Key="LunarEspMaster",UI=AliasMap.Switcher,Text="ESP Master",ExpandIndex=0,
+    Other[#Other+1]={Key="LunarEspMaster",UI=AliasMap.Switcher,Text="ESP Master (enemy esp on/off)",ExpandIndex=0,
         GetFunc=function() return _G.g_vipserver_VIPShotESP.Enabled==true end,
         SetFunc=function(c,v)
             local on=(value(c,v)==true or value(c,v)==1)
@@ -1854,11 +1892,11 @@ do
             return true
         end}
     if sliderReady then
-        Other[#Other+1]=rangeItem("LunarEspRange","ESP distance",400,1000,"LunarEspMaster",
+        Other[#Other+1]=rangeItem("LunarEspRange","ESP Distance (max esp range)",400,1000,"LunarEspMaster",
             function() return featureState().Settings.EspRange end,"SetEspRange")
     end
     if sliderReady then
-        Other[#Other+1]=rangeItem("LunarEspTargets","ESP max targets",5,64,"LunarEspMaster",
+        Other[#Other+1]=rangeItem("LunarEspTargets","ESP Max Targets (max enemies)",5,64,"LunarEspMaster",
             function() return featureState().Settings.EspMaxTargets end,"SetEspMaxTargets")
     end
    -- Other[#Other+1]={Key="LunarAim2",UI=AliasMap.Switcher,Text="Aimbot V2",
@@ -1874,7 +1912,7 @@ do
     Skin[#Skin+1] = {
         Key = "LunarSkinMaster",
         UI  = AliasMap.Switcher,
-        Text = "Skin Changer (Master)",
+        Text = "Skin Changer (Master - outfits on/off)",
         GetFunc = function() return _G.MWConfig.ModSkin == true end,
         SetFunc = function(c, v)
             _G.MWConfig.ModSkin = (v == true or v == 1)
@@ -1890,42 +1928,42 @@ do
     Skin[#Skin+1] = {
         Key = "LunarSkinSafe",
         UI  = AliasMap.Switcher,
-        Text = "Client-only (anti-ban)",
+        Text = "Client Only (Anti-Ban - ON rakhein)",
         GetFunc = function() return featureState().Settings.SkinSafeMode ~= false end,
         SetFunc = function(c, v) featureState().SetSkinSafeMode(value(c, v)); return true end,
     }
     Skin[#Skin+1] = {
         Key = "LunarSkinDeadBox",
         UI  = AliasMap.Switcher,
-        Text = "Dead Box Skin",
+        Text = "Dead Box Skin (crate skin)",
         GetFunc = function() return _G.MWConfig.SkinDeadBox == true end,
         SetFunc = function(c, v) _G.MWConfig.SkinDeadBox = (v == true or v == 1); return true end,
     }
     Skin[#Skin+1] = {
         Key = "LunarSkinAttachment",
         UI  = AliasMap.Switcher,
-        Text = "Weapon Attachment Skin",
+        Text = "Weapon Attachment Skin (gun skin)",
         GetFunc = function() return _G.MWConfig.SkinAttachment == true end,
         SetFunc = function(c, v) _G.MWConfig.SkinAttachment = (v == true or v == 1); return true end,
     }
     Skin[#Skin+1] = {
         Key = "LunarKillMessage",
         UI  = AliasMap.Switcher,
-        Text = "Kill Message",
+        Text = "Kill Message (custom kill text)",
         GetFunc = function() return _G.MWConfig.KillMessage == true end,
         SetFunc = function(c, v) _G.MWConfig.KillMessage = (v == true or v == 1); return true end,
     }
     Skin[#Skin+1] = {
         Key = "LunarKillCountUI",
         UI  = AliasMap.Switcher,
-        Text = "Kill Counter UI",
+        Text = "Kill Counter UI (on-screen kills)",
         GetFunc = function() return _G.MWConfig.KillCountUI == true end,
         SetFunc = function(c, v) _G.MWConfig.KillCountUI = (v == true or v == 1); return true end,
     }
     Skin[#Skin+1] = {
         Key = "LunarModEmote",
         UI  = AliasMap.Switcher,
-        Text = "Unlock All Emotes",
+        Text = "Unlock All Emotes (all dance)",
         GetFunc = function() return _G.MWConfig.ModEmote == true end,
         SetFunc = function(c, v) _G.MWConfig.ModEmote = (v == true or v == 1); return true end,
     }
@@ -1933,7 +1971,7 @@ do
     Skin[#Skin+1] = {
         Key = "LunarSkinReapply",
         UI  = AliasMap.Switcher,
-        Text = "Re-apply outfits",
+        Text = "Re-apply Outfits (refresh skins)",
         GetFunc = function() return false end,
         SetFunc = function(c, v)
             local outfit = _G.AddOutfit
@@ -1946,11 +1984,11 @@ do
             return true
         end,
     }
-    Other[#Other+1]={Key="LunarMortarAim",UI=AliasMap.Switcher,Text="Mortar aim",
+    Other[#Other+1]={Key="LunarMortarAim",UI=AliasMap.Switcher,Text="Mortar Aim (mortar lock)",
         GetFunc=function() return featureState().Settings.MortarEnabled end,
         SetFunc=function(c,v) featureState().SetMortar(value(c,v));return true end}
     local names={"Pink","White","Cyan","Green","Yellow","Saffron","Red"}
-    for i,entry in ipairs({{"WallVisible","Visible color"},{"WallOccluded","Behind-wall color"}}) do
+    for i,entry in ipairs({{"WallVisible","Wall Visible Color"},{"WallOccluded","Wall Behind-Wall Color"}}) do
         local key,label=entry[1],entry[2]
         table.insert(Other,1+i,{Key="Lunar"..key,UI=AliasMap.CompactSwitcher or AliasMap.Switcher,Text=label,
             EventType=F.ESPSettingsEventType,EventID=3,
@@ -1959,7 +1997,7 @@ do
             SetFunc=function(c,v) return featureState().SetWallColor(key,value(c,v)) end})
     end
     -- V9.7: Wall Hack crash guard. Safe mode only touches character meshes.
-    Other[#Other+1]={Key="LunarWallSafe",UI=AliasMap.Switcher,Text="Safe mode (anti-crash)",
+    Other[#Other+1]={Key="LunarWallSafe",UI=AliasMap.Switcher,Text="Safe Mode (wall anti-crash)",
         ExpandHandle="LunarWall",
         GetFunc=function() return featureState().Settings.WallSafeMode end,
         SetFunc=function(c,v) featureState().SetWallSafeMode(value(c,v));return true end}
@@ -2016,7 +2054,7 @@ do
         state.Ready = state.Registered and state.HookInstalled == true
         if state.Ready then
             state.LastError = nil
-            _G.HackMenuInitialized = "VIP_SERVER_NATIVE_SETTINGS_V9_8"
+            _G.HackMenuInitialized = "VIP_SERVER_NATIVE_SETTINGS_V9_10"
         else state.LastError = "SETTINGS_UI_MANAGER_NOT_READY" end
         return state.Ready
     end
@@ -4925,6 +4963,23 @@ do
     -- V9.3 additions: fine-grained Aimbot V1 and ESP controls.
     settings.AimFOV=number(settings.AimFOV,10,100,30)
     settings.AimDist=number(settings.AimDist,50,400,120)
+    -- V9.9: manual per-scope tuning + ADS-only + kick (recoil) control.
+    settings.ScopeManual=settings.ScopeManual==true
+    settings.AimOnlyADS=settings.AimOnlyADS==true
+    settings.KickControl=settings.KickControl==true
+    settings.KickAmount=number(settings.KickAmount,0,100,100)
+    settings.HipFOV=number(settings.HipFOV,10,100,settings.AimFOV)
+    settings.HipSpeed=number(settings.HipSpeed,100,120,settings.AimSpeed)
+    settings.HipDist=number(settings.HipDist,50,400,settings.AimDist)
+    settings.AdsFOV=number(settings.AdsFOV,10,100,settings.AimFOV)
+    settings.AdsSpeed=number(settings.AdsSpeed,100,120,settings.AimSpeed)
+    settings.AdsDist=number(settings.AdsDist,50,400,settings.AimDist)
+    settings.SniperFOV=number(settings.SniperFOV,10,100,settings.AimFOV)
+    settings.SniperSpeed=number(settings.SniperSpeed,100,120,settings.AimSpeed)
+    settings.SniperDist=number(settings.SniperDist,50,400,settings.AimDist)
+    settings.SgFOV=number(settings.SgFOV,10,100,math.max(40,settings.AimFOV))
+    settings.SgSpeed=number(settings.SgSpeed,100,120,settings.AimSpeed)
+    settings.SgDist=number(settings.SgDist,10,200,30)
     settings.AimVisCheck=settings.AimVisCheck~=false
     settings.AimIgKnock=settings.AimIgKnock~=false
     settings.AimIgBot=settings.AimIgBot==true
@@ -4969,11 +5024,32 @@ do
                             settings[key]=number(val,lo,hi,settings[key])
                         end
                     end
+                    -- V9.9: manual per-scope tuning values.
+                    for _,key in ipairs({"HipFOV","AdsFOV","SniperFOV","SgFOV"}) do
+                        local val=payload:match("%f[%w_]"..key.."%s*=%s*([%d%.%-]+)")
+                        if val then settings[key]=number(val,10,100,settings[key]) end
+                    end
+                    for _,key in ipairs({"HipSpeed","AdsSpeed","SniperSpeed","SgSpeed"}) do
+                        local val=payload:match("%f[%w_]"..key.."%s*=%s*([%d%.%-]+)")
+                        if val then settings[key]=number(val,100,120,settings[key]) end
+                    end
+                    for _,key in ipairs({"HipDist","AdsDist","SniperDist"}) do
+                        local val=payload:match("%f[%w_]"..key.."%s*=%s*([%d%.%-]+)")
+                        if val then settings[key]=number(val,50,400,settings[key]) end
+                    end
+                    for _,key in ipairs({"SgDist"}) do
+                        local val=payload:match("%f[%w_]"..key.."%s*=%s*([%d%.%-]+)")
+                        if val then settings[key]=number(val,10,200,settings[key]) end
+                    end
+                    for _,key in ipairs({"KickAmount"}) do
+                        local val=payload:match("%f[%w_]"..key.."%s*=%s*([%d%.%-]+)")
+                        if val then settings[key]=number(val,0,100,settings[key]) end
+                    end
                     for _,key in ipairs({"AimVisCheck","AimIgKnock","AimIgBot"}) do
                         local val=payload:match("%f[%w_]"..key.."%s*=%s*(%a+)")
                         if val=="true" or val=="false" then settings[key]=val=="true" end
                     end
-                    for _,key in ipairs({"AimSniperScope","AimShotgun","WallSafeMode","SkinSafeMode"}) do
+                    for _,key in ipairs({"AimSniperScope","AimShotgun","WallSafeMode","SkinSafeMode","ScopeManual","AimOnlyADS","KickControl"}) do
                         local val=payload:match("%f[%w_]"..key.."%s*=%s*(%a+)")
                         if val=="true" or val=="false" then settings[key]=val=="true" end
                     end
@@ -5010,8 +5086,8 @@ do
     F.Save=function(force)
         if not F.Dirty or not io or not io.open then return end
         local lines={"return {", "  IpadEnabled = "..tostring(_G.MWConfig.IpadView==true)..","}
-        for _,key in ipairs({"AimEnabled","WallEnabled","Aim2Enabled","MortarEnabled","IpadFOV","AimSpeed","AimTarget","WallVisible","WallOccluded","AimFOV","AimDist","EspRange","EspMaxTargets"}) do lines[#lines+1]="  "..key.." = "..tostring(settings[key]).."," end
-        for _,key in ipairs({"AimVisCheck","AimIgKnock","AimIgBot","AimSniperScope","AimShotgun","WallSafeMode","SkinSafeMode"}) do lines[#lines+1]="  "..key.." = "..tostring(settings[key]==true).."," end
+        for _,key in ipairs({"AimEnabled","WallEnabled","Aim2Enabled","MortarEnabled","IpadFOV","AimSpeed","AimTarget","WallVisible","WallOccluded","AimFOV","AimDist","EspRange","EspMaxTargets","KickAmount","HipFOV","HipSpeed","HipDist","AdsFOV","AdsSpeed","AdsDist","SniperFOV","SniperSpeed","SniperDist","SgFOV","SgSpeed","SgDist"}) do lines[#lines+1]="  "..key.." = "..tostring(settings[key]).."," end
+        for _,key in ipairs({"AimVisCheck","AimIgKnock","AimIgBot","AimSniperScope","AimShotgun","WallSafeMode","SkinSafeMode","ScopeManual","AimOnlyADS","KickControl"}) do lines[#lines+1]="  "..key.." = "..tostring(settings[key]==true).."," end
         for _,key in ipairs({"Name","Line","Health","Distance","EnemyCounter"}) do lines[#lines+1]="  V1_"..key.." = "..tostring(_G.g_Botmater_ESPOptions[key]==true).."," end
         for _,key in ipairs({"Name","Line","Box","Health","Distance","Skeleton","Counter"}) do lines[#lines+1]="  V2_"..key.." = "..tostring(_G.g_vipserver_ESPOptions[key]==true).."," end
         lines[#lines+1]="}"
@@ -5041,6 +5117,87 @@ do
         pcall(g_vipserver_ApplyiPadView)
         F.MarkDirty()
     end
+    -- V9.9: ek hi jagah se saare aim knobs likhte hain. Manual ON ho to
+    -- per-mode (hip/ADS/sniper/shotgun) values, warna global Aim FOV/Speed/Dist.
+    F.ApplyAimManual=function()
+        local data=_G.XthrlenState and _G.XthrlenState.CustomTextData
+        if not data then return false end
+        if settings.ScopeManual then
+            data.AimTouchHipFOV=settings.HipFOV
+            data.AimTouchHipSpeed=settings.HipSpeed
+            data.AimTouchHipDist=settings.HipDist
+            data.AimTouchScopeFOV=settings.AdsFOV
+            data.AimTouchScopeSpeed=settings.AdsSpeed
+            data.AimTouchScopeDist=settings.AdsDist
+            data.AimTouchSniperFOV=settings.SniperFOV
+            data.AimTouchSniperSpeed=settings.SniperSpeed
+            data.AimTouchSniperDist=settings.SniperDist
+            data.AimTouchSGFOV=settings.SgFOV
+            data.AimTouchSGSpeed=settings.SgSpeed
+            data.AimTouchSGDist=settings.SgDist
+        else
+            data.AimTouchHipFOV=settings.AimFOV
+            data.AimTouchHipSpeed=settings.AimSpeed
+            data.AimTouchHipDist=settings.AimDist
+            data.AimTouchScopeFOV=settings.AimFOV
+            data.AimTouchScopeSpeed=settings.AimSpeed
+            data.AimTouchScopeDist=settings.AimDist
+            data.AimTouchSniperFOV=settings.AimFOV
+            data.AimTouchSniperSpeed=settings.AimSpeed
+            data.AimTouchSniperDist=settings.AimDist
+            data.AimTouchSGFOV=math.max(40,settings.AimFOV)
+            data.AimTouchSGSpeed=settings.AimSpeed
+            data.AimTouchSGDist=30
+        end
+        F.AimLastClock=nil;F.AimDue=0
+        if _G.XthrlenState then _G.XthrlenState.offPitch=0;_G.XthrlenState.offYaw=0 end
+        return true
+    end
+    -- Manual sliders: value likhte hi manual mode khud ON ho jata hai, taaki
+    -- slider move karne par asar turant dikhe.
+    local manualRanges={
+        HipFOV={10,100},AdsFOV={10,100},SniperFOV={10,100},SgFOV={10,100},
+        HipSpeed={100,120},AdsSpeed={100,120},SniperSpeed={100,120},SgSpeed={100,120},
+        HipDist={50,400},AdsDist={50,400},SniperDist={50,400},SgDist={10,200}}
+    F.SetAimManual=function(key,value)
+        local range=manualRanges[key]
+        if not range then return false end
+        settings[key]=number(value,range[1],range[2],settings[key])
+        settings.ScopeManual=true
+        F.ApplyAimManual()
+        F.MarkDirty(true)
+        if F.Wake then F.Wake() end
+        return true
+    end
+    F.SetAimManualMode=function(enabled)
+        settings.ScopeManual=(enabled==true or enabled==1)
+        F.ApplyAimManual()
+        F.MarkDirty(true)
+        if F.Wake then F.Wake() end
+        return true
+    end
+    -- ADS only: hipfire aim poori tarah band (AimTouchHipfire gate).
+    F.SetAimOnlyADS=function(enabled)
+        settings.AimOnlyADS=(enabled==true or enabled==1)
+        if _G.XthrlenConfig then _G.XthrlenConfig.AimTouchHipfire=not settings.AimOnlyADS end
+        F.AimLastClock=nil;F.AimDue=0
+        F.MarkDirty(true)
+        if F.Wake then F.Wake() end
+        return true
+    end
+    -- Kick control: weapon ke shoot component par recoil fields ko dabata hai.
+    F.SetKickControl=function(enabled)
+        settings.KickControl=(enabled==true or enabled==1)
+        if not settings.KickControl and _G.LunarKick then pcall(_G.LunarKick.Stop) end
+        F.MarkDirty(true)
+        if F.Wake then F.Wake() end
+        return true
+    end
+    F.SetKickAmount=function(value)
+        settings.KickAmount=number(value,0,100,100)
+        F.MarkDirty(true)
+        return true
+    end
     F.SetAimSpeed=function(value)
         local previousSpeed=settings.AimSpeed
         settings.AimSpeed=number(value,100,120,100)
@@ -5049,11 +5206,7 @@ do
             if _G.XthrlenState then _G.XthrlenState.offPitch=0;_G.XthrlenState.offYaw=0 end
         end
         if _G.XthrlenState and _G.XthrlenState.CustomTextData then
-            local data=_G.XthrlenState.CustomTextData
-            data.AimTouchHipSpeed=settings.AimSpeed
-            data.AimTouchScopeSpeed=settings.AimSpeed
-            data.AimTouchSniperSpeed=settings.AimSpeed
-            data.AimTouchSGSpeed=settings.AimSpeed
+            F.ApplyAimManual()
         end
         F.MarkDirty()
     end
@@ -5069,13 +5222,13 @@ do
     end
     F.SetAimFOV=function(value)
         settings.AimFOV=number(value,10,100,30)
-        aimTouchField("FOV",settings.AimFOV)
+        F.ApplyAimManual()
         F.AimLastClock=nil;F.AimDue=0
         F.MarkDirty(true)
     end
     F.SetAimDist=function(value)
         settings.AimDist=number(value,50,400,120)
-        aimTouchField("Dist",settings.AimDist)
+        F.ApplyAimManual()
         F.AimLastClock=nil;F.AimDue=0
         F.MarkDirty(true)
     end
@@ -5137,9 +5290,8 @@ do
         if data then
             -- cond 2 = aim allowed without firing; keep the scope on the head.
             data.AimTouchSniperCond=2
-            data.AimTouchSniperFOV=settings.AimFOV
-            data.AimTouchSniperDist=settings.AimDist
         end
+        F.ApplyAimManual()
         F.AimLastClock=nil;F.AimDue=0
         F.MarkDirty(true)
         if F.Wake then F.Wake() end
@@ -5151,10 +5303,8 @@ do
         local data=_G.XthrlenState and _G.XthrlenState.CustomTextData
         if data then
             data.AimTouchSGCond=2
-            data.AimTouchSGFOV=math.max(40,settings.AimFOV)
-            data.AimTouchSGDist=30
-            data.AimTouchSGSpeed=settings.AimSpeed
         end
+        F.ApplyAimManual()
         F.AimLastClock=nil;F.AimDue=0
         F.MarkDirty(true)
         if F.Wake then F.Wake() end
@@ -5346,6 +5496,7 @@ do
         if F.Wall then F.Wall.Stop() end
         if F.Aim2 then F.Aim2.Stop() end
         if F.Mortar then F.Mortar.Stop() end
+        if _G.LunarKick then pcall(_G.LunarKick.Stop) end
     end
 end
 
@@ -5360,7 +5511,7 @@ _G.XthrlenState = _G.XthrlenState or {}
 _G.XthrlenState.CustomTextData = _G.XthrlenState.CustomTextData or {}
 
 _G.XthrlenConfig.AimTouchEnable        = _G.LunarFeatures.Settings.AimEnabled
-_G.XthrlenConfig.AimTouchHipfire       = true
+_G.XthrlenConfig.AimTouchHipfire       = not _G.LunarFeatures.Settings.AimOnlyADS
 _G.XthrlenConfig.AimTouchScopeAll      = true
 _G.XthrlenConfig.AimTouchHipVisCheck   = _G.LunarFeatures.Settings.AimVisCheck
 _G.XthrlenConfig.AimTouchScopeVisCheck = _G.LunarFeatures.Settings.AimVisCheck
@@ -5402,6 +5553,9 @@ _G.XthrlenState.CustomTextData.AimTouchSGCond   = 2
 _G.XthrlenState.CustomTextData.AimTouchSGSpeed  = _G.LunarFeatures.Settings.AimSpeed
 _G.XthrlenState.CustomTextData.AimTouchSGFOV    = math.max(40,_G.LunarFeatures.Settings.AimFOV)
 _G.XthrlenState.CustomTextData.AimTouchSGDist   = 30
+
+-- V9.9: saved manual scope values (ya global defaults) apply karo.
+if type(_G.LunarFeatures.ApplyAimManual)=="function" then pcall(_G.LunarFeatures.ApplyAimManual) end
 
 _G.XthrlenState.offPitch = _G.XthrlenState.offPitch or 0
 _G.XthrlenState.offYaw   = _G.XthrlenState.offYaw   or 0
@@ -5533,6 +5687,8 @@ _G.AimTouch = function()
         if type(diag)~="table" then diag={}; _G.LunarAimDiag=diag end
         diag.Shotgun=isShotgun; diag.Sniper=isSniper; diag.ADS=isADS==true; diag.Firing=isFiring==true
         diag.SniperIdle=sniperIdle==true; diag.ShotgunIdle=shotgunIdle==true
+        diag.Manual=aimSettings.ScopeManual==true; diag.ADSOnly=aimSettings.AimOnlyADS==true
+        diag.Kick=aimSettings.KickControl==true; diag.KickAmount=tonumber(aimSettings.KickAmount)
         pcall(function()
             if slua.isValid(weapon) and type(weapon.GetWeaponName)=="function" then diag.Weapon=weapon:GetWeaponName() end
         end)
@@ -5951,6 +6107,81 @@ end
 
 
 _G.LunarFeatures.Aim={Tick=_G.AimTouch}
+
+-- V9.9: Kick control (recoil). Ye asli engine fields hain jo weapon ke shoot
+-- component par recoil/deviation control karte hain. Amount 100 = minimum
+-- kick (0.01), 0 = kuch nahi chhua. Disable/reload par original values wapas.
+local Kick={Records={},LastWeapon=nil,Applied=false,Target=0.01}
+local KICK_FIELDS={"RecoilKickADS","GameDeviationFactor","GameDeviationAccuracy"}
+_G.LunarKick=Kick
+local function kickRestore()
+    for comp,record in pairs(Kick.Records) do
+        if slua.isValid(comp) then
+            for key,value in pairs(record) do pcall(function() comp[key]=value end) end
+        end
+        Kick.Records[comp]=nil
+    end
+    Kick.Applied=false
+end
+Kick.Stop=function()
+    pcall(kickRestore)
+    Kick.LastWeapon=nil
+    Kick.Target=0.01
+end
+local function kickComp(pawn)
+    if not slua.isValid(pawn) then return nil end
+    local weapon=nil
+    local mgr=pawn.WeaponManagerComponent
+    if mgr then weapon=mgr.CurrentWeaponReplicated end
+    if not slua.isValid(weapon) and type(pawn.GetCurrentShootWeapon)=="function" then
+        local ok,v=pcall(function() return pawn:GetCurrentShootWeapon() end)
+        if ok and slua.isValid(v) then weapon=v end
+    end
+    if not slua.isValid(weapon) then return nil end
+    local comp=weapon.ShootWeaponEntityComp
+    if not slua.isValid(comp) then return nil end
+    return weapon,comp
+end
+Kick.Tick=function(pawn)
+    local settings=_G.LunarFeatures.Settings
+    if settings.KickControl~=true then
+        if Kick.LastWeapon or next(Kick.Records) then Kick.Stop() end
+        return false
+    end
+    local weapon,comp=kickComp(pawn)
+    if not comp then
+        if Kick.LastWeapon or next(Kick.Records) then Kick.Stop() end
+        return false
+    end
+    if Kick.LastWeapon and Kick.LastWeapon~=weapon then kickRestore() end
+    Kick.LastWeapon=weapon
+    local amount=math.max(0,math.min(100,tonumber(settings.KickAmount) or 100))
+    -- Amount 0 = feature off (recoil ko chhua hi nahi).
+    if amount<=0 then
+        if Kick.LastWeapon or next(Kick.Records) then Kick.Stop() end
+        return false
+    end
+    local target=0.01+(1.0-amount/100.0)*0.99
+    local record=Kick.Records[comp]
+    if not record then
+        record={}
+        Kick.Records[comp]=record
+        for _,key in ipairs(KICK_FIELDS) do
+            local current=comp[key]
+            if type(current)=="number" then record[key]=current end
+        end
+    end
+    for _,key in ipairs(KICK_FIELDS) do
+        local current=comp[key]
+        if type(current)=="number" and math.abs(current-target)>0.0005 then
+            pcall(function() comp[key]=target end)
+        end
+    end
+    Kick.Target=target
+    Kick.Applied=true
+    _G.LunarKickDiag={Weapon=weapon,Target=target,Amount=amount,Fields=#KICK_FIELDS}
+    return true
+end
 end
 
 -- Preserve the reference's DrawDyeing/Highlight/IdeaOutline settings and cadence.
@@ -5996,7 +6227,14 @@ do
     end
     W.UpdateColors()
     W.SafeMode = F.Settings.WallSafeMode ~= false
+    -- V9.10: per-tick error dedup. colorCalls mein ~20 native calls hain;
+    -- agar sab fail hon to ek tick mein 20+ errors count hote the aur 140 ka
+    -- limit 2-3 second mein hit ho jata tha, jis se wall khud band ho jata tha.
+    -- Ab ek tick mein max 1 error count hoga.
+    W.LastErrorTick=-1
     local function noteError(call,err)
+        if W.LastErrorTick==W.LastTick then return end
+        W.LastErrorTick=W.LastTick
         W.Errors=(W.Errors or 0)+1
         F.Error("Wall."..tostring(call),err)
         -- Repeated failures mean this match/mode does not accept the native
@@ -7681,19 +7919,21 @@ do
             checked(F.Wall.Stop,"Wall.Reset")
             checked(F.Aim2.Stop,"Aim2.Reset")
             checked(F.Mortar.Stop,"Mortar.Reset")
+            if _G.LunarKick then checked(_G.LunarKick.Stop,"Kick.Reset") end
             F.Wall.ConsoleWorld=nil
             _G.AimTouchVisCache={}
             _G.LunarAimStickyTarget=nil;_G.LunarAimFilter=nil;_G.LunarAimTargetCache=nil
             _G.XthrlenState.aimVelP=nil;_G.XthrlenState.aimVelY=nil
             _G.XthrlenState.offPitch=0;_G.XthrlenState.offYaw=0
             F.AimLastClock=nil
-            F.V1Due=0;F.AimDue=0;F.IpadDue=0
+            F.V1Due=0;F.AimDue=0;F.IpadDue=0;F.KickDue=0
             F.LastWorld,F.LastPC,F.LastPawn=world,pc,pawn
         end
         if F.V1.State.Canvas and not g_vipserver_ESPValid(F.V1.State.Canvas) then checked(F.V1.Reset,"V1.CanvasReset");F.V1Due=0 end
         if not pc or not pawn then
             if F.Aim2.Player or next(F.Aim2.Records) then checked(F.Aim2.Stop,"Aim2.NoPlayer") end
             if F.Mortar.Player then checked(F.Mortar.Stop,"Mortar.NoPlayer") end
+            if _G.LunarKick and (_G.LunarKick.LastWeapon or next(_G.LunarKick.Records)) then checked(_G.LunarKick.Stop,"Kick.NoPlayer") end
             if not F.V1Disabled then checked(F.V1.Reset,"V1.NoPlayer") end
             F.V1Disabled=true
             return
@@ -7739,6 +7979,16 @@ do
                 if not (pawn and pawn.bIsWeaponFiring) and not idleAim then F.AimLastClock=nil end
             end
         end
+        -- V9.9: kick control aimbot se alag chalta hai (aim off ho to bhi kaam
+        -- kare). 20 Hz kaafi hai; recoil fields hold karte hain.
+        if F.Settings.KickControl==true then
+            if not F.KickDue or now>=F.KickDue-0.000001 then
+                checked(_G.LunarKick.Tick,"Kick.Tick",pawn)
+                F.KickDue=now+0.05
+            end
+        elseif _G.LunarKick and _G.LunarKick.LastWeapon then
+            checked(_G.LunarKick.Stop,"Kick.Stop")
+        end
         if F.Settings.WallEnabled then checked(F.Wall.Tick,"Wall.Tick",now,pawn,pc) end
         if _G.MWConfig.IpadView and now>=F.IpadDue then
             checked(g_vipserver_ApplyiPadView,"Ipad")
@@ -7757,6 +8007,7 @@ do
         if F.Settings.Aim2Enabled then nextDelay=math.min(nextDelay,F.Aim2.NextInterval(now))
         elseif next(F.Aim2.Records) then due(F.Aim2RestoreDue) end
         if F.Settings.MortarEnabled then nextDelay=math.min(nextDelay,F.Mortar.NextInterval(now)) end
+        if F.Settings.KickControl==true then due(F.KickDue or now) end
         if F.Settings.WallEnabled then due(F.Wall.LastTick+0.30);due(F.Wall.LastCleanup+F.Wall.CleanupInterval) end
         if _G.MWConfig.IpadView then due(F.IpadDue) end
         if F.Dirty then due(F.SaveDue) end
