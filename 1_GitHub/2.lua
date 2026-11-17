@@ -1608,7 +1608,7 @@ end
 -- Feature rows, option values and authentication stay owned by this script.
 local g_vipserver_EnsureHackMenu
 do
-    local VERSION = "LunarSettings.V9.3.MenuFix"
+    local VERSION = "LunarSettings.V9.4.MenuFix"
     local function runtime()
         local state = _G.LunarNativeSettingsRuntime
         if type(state) ~= "table" then state = {}; _G.LunarNativeSettingsRuntime = state end
@@ -1825,6 +1825,13 @@ do
     Other[#Other+1]={Key="LunarAimBot",UI=AliasMap.Switcher,Text="Ignore bots",ExpandHandle="LunarAim",
         GetFunc=function() return featureState().Settings.AimIgBot end,
         SetFunc=function(c,v) featureState().SetAimIgBot(value(c,v));return true end}
+    -- V9.4: idle aim modes (work without firing).
+    Other[#Other+1]={Key="LunarAimSniper",UI=AliasMap.Switcher,Text="Sniper scope aim",ExpandHandle="LunarAim",
+        GetFunc=function() return featureState().Settings.AimSniperScope end,
+        SetFunc=function(c,v) featureState().SetAimSniperScope(value(c,v));return true end}
+    Other[#Other+1]={Key="LunarAimShotgun",UI=AliasMap.Switcher,Text="Shotgun aim (no scope)",ExpandHandle="LunarAim",
+        GetFunc=function() return featureState().Settings.AimShotgun end,
+        SetFunc=function(c,v) featureState().SetAimShotgun(value(c,v));return true end}
     -- V9.3: ESP master switch + range slider.
     Other[#Other+1]={Key="LunarEspMaster",UI=AliasMap.Switcher,Text="ESP Master",ExpandIndex=0,
         GetFunc=function() return _G.g_vipserver_VIPShotESP.Enabled==true end,
@@ -1986,7 +1993,7 @@ Other[#Other+1] = {
         state.Ready = state.Registered and state.HookInstalled == true
         if state.Ready then
             state.LastError = nil
-            _G.HackMenuInitialized = "VIP_SERVER_NATIVE_SETTINGS_V9_3"
+            _G.HackMenuInitialized = "VIP_SERVER_NATIVE_SETTINGS_V9_4"
         else state.LastError = "SETTINGS_UI_MANAGER_NOT_READY" end
         return state.Ready
     end
@@ -4897,6 +4904,9 @@ do
     settings.AimIgBot=settings.AimIgBot==true
     settings.EspRange=number(settings.EspRange,400,1000,1000)
     settings.EspMaxTargets=number(settings.EspMaxTargets,5,64,50)
+    -- V9.4: idle aim modes that work without firing.
+    settings.AimSniperScope=settings.AimSniperScope==true
+    settings.AimShotgun=settings.AimShotgun==true
     _G.g_Botmater_ESPOptions=_G.g_Botmater_ESPOptions or {}
     for _,key in ipairs({"Name","Line","Health","Distance","EnemyCounter"}) do
         if _G.g_Botmater_ESPOptions[key]==nil then _G.g_Botmater_ESPOptions[key]=false end
@@ -4937,6 +4947,10 @@ do
                         local val=payload:match("%f[%w_]"..key.."%s*=%s*(%a+)")
                         if val=="true" or val=="false" then settings[key]=val=="true" end
                     end
+                    for _,key in ipairs({"AimSniperScope","AimShotgun"}) do
+                        local val=payload:match("%f[%w_]"..key.."%s*=%s*(%a+)")
+                        if val=="true" or val=="false" then settings[key]=val=="true" end
+                    end
                     for _,key in ipairs({"Name","Line","Health","Distance","EnemyCounter"}) do
                         local val=payload:match("%f[%w_]V1_"..key.."%s*=%s*(%a+)")
                         if val=="true" or val=="false" then _G.g_Botmater_ESPOptions[key]=val=="true" end
@@ -4971,7 +4985,7 @@ do
         if not F.Dirty or not io or not io.open then return end
         local lines={"return {", "  IpadEnabled = "..tostring(_G.MWConfig.IpadView==true)..","}
         for _,key in ipairs({"AimEnabled","WallEnabled","Aim2Enabled","MortarEnabled","IpadFOV","AimSpeed","AimTarget","WallVisible","WallOccluded","AimFOV","AimDist","EspRange","EspMaxTargets"}) do lines[#lines+1]="  "..key.." = "..tostring(settings[key]).."," end
-        for _,key in ipairs({"AimVisCheck","AimIgKnock","AimIgBot"}) do lines[#lines+1]="  "..key.." = "..tostring(settings[key]==true).."," end
+        for _,key in ipairs({"AimVisCheck","AimIgKnock","AimIgBot","AimSniperScope","AimShotgun"}) do lines[#lines+1]="  "..key.." = "..tostring(settings[key]==true).."," end
         for _,key in ipairs({"Name","Line","Health","Distance","EnemyCounter"}) do lines[#lines+1]="  V1_"..key.." = "..tostring(_G.g_Botmater_ESPOptions[key]==true).."," end
         for _,key in ipairs({"Name","Line","Box","Health","Distance","Skeleton","Counter"}) do lines[#lines+1]="  V2_"..key.." = "..tostring(_G.g_vipserver_ESPOptions[key]==true).."," end
         lines[#lines+1]="}"
@@ -5083,6 +5097,36 @@ do
         if _G.g_vipserver_VIPShotESP then
             _G.g_vipserver_VIPShotESP.MaxRendered=settings.EspMaxTargets
         end
+        F.MarkDirty(true)
+        if F.Wake then F.Wake() end
+    end
+    -- V9.4 idle aim modes. Both work while the weapon is NOT firing.
+    F.SetAimSniperScope=function(enabled)
+        settings.AimSniperScope=enabled==true or enabled==1
+        local cfg=_G.XthrlenConfig
+        if cfg then cfg.AimTouchScopeSniper=settings.AimSniperScope end
+        local data=_G.XthrlenState and _G.XthrlenState.CustomTextData
+        if data then
+            -- cond 2 = aim allowed without firing; keep the scope on the head.
+            data.AimTouchSniperCond=2
+            data.AimTouchSniperFOV=settings.AimFOV
+            data.AimTouchSniperDist=settings.AimDist
+        end
+        F.AimLastClock=nil;F.AimDue=0
+        F.MarkDirty(true)
+        if F.Wake then F.Wake() end
+    end
+    F.SetAimShotgun=function(enabled)
+        settings.AimShotgun=enabled==true or enabled==1
+        local cfg=_G.XthrlenConfig
+        if cfg then cfg.AimTouchSG=settings.AimShotgun end
+        local data=_G.XthrlenState and _G.XthrlenState.CustomTextData
+        if data then
+            data.AimTouchSGCond=2
+            data.AimTouchSGFOV=math.max(40,settings.AimFOV)
+            data.AimTouchSGDist=30
+        end
+        F.AimLastClock=nil;F.AimDue=0
         F.MarkDirty(true)
         if F.Wake then F.Wake() end
     end
@@ -5271,9 +5315,9 @@ _G.XthrlenConfig.AimTouchSniperIgKnock = _G.LunarFeatures.Settings.AimIgKnock
 _G.XthrlenConfig.AimTouchHipIgBot      = _G.LunarFeatures.Settings.AimIgBot
 _G.XthrlenConfig.AimTouchScopeIgBot    = _G.LunarFeatures.Settings.AimIgBot
 _G.XthrlenConfig.AimTouchSniperIgBot   = _G.LunarFeatures.Settings.AimIgBot
-_G.XthrlenConfig.AimTouchSG            = false
+_G.XthrlenConfig.AimTouchSG            = _G.LunarFeatures.Settings.AimShotgun
 _G.XthrlenConfig.AimTouchSGAutoFire    = false
-_G.XthrlenConfig.AimTouchScopeSniper   = false
+_G.XthrlenConfig.AimTouchScopeSniper   = _G.LunarFeatures.Settings.AimSniperScope
 _G.XthrlenConfig.AimTouchMortar        = false
 _G.XthrlenConfig.EspFovCircle          = false
 
@@ -5344,7 +5388,8 @@ end
 
 _G.AimTouch = function()
     local ok,err=pcall(function()
-        if not _G.XthrlenConfig.AimTouchEnable then return end
+        local aimSettings=_G.LunarFeatures.Settings
+        if not (_G.XthrlenConfig.AimTouchEnable or aimSettings.AimSniperScope==true or aimSettings.AimShotgun==true) then return end
         
         local player = GameplayData.GetPlayerCharacter()
         if not (slua and slua.isValid and slua.isValid(player)) then return end
@@ -5354,9 +5399,8 @@ _G.AimTouch = function()
         
         local isFiring = player.bIsWeaponFiring
         local isADS = player.bIsGunADS
-        -- Both supplied hip/scope modes require firing. Return before scanning,
-        -- weapon classification, visibility checks or imports during idle play.
-        if not isFiring then return end
+        -- Firing gate moved below weapon classification so the V9.4 idle modes
+        -- (sniper scope / shotgun hipfire) can aim without ever firing a shot.
         
         local weapon = player.WeaponManagerComponent and player.WeaponManagerComponent.CurrentWeaponReplicated
         if not weapon and type(player.GetCurrentShootWeapon) == "function" then
@@ -5403,6 +5447,13 @@ _G.AimTouch = function()
             _G.XthrlenState.IsAutoFiring = false
         end
 
+        -- V9.4: idle aim permission. Sniper = ADS with a sniper rifle, shotgun =
+        -- hipfire (no scope) with a shotgun. Both run without firing.
+        local idleSettings=_G.LunarFeatures.Settings
+        local sniperIdle=idleSettings.AimSniperScope==true and isSniper and isADS
+        local shotgunIdle=idleSettings.AimShotgun==true and isShotgun and (not isADS)
+        if (not isFiring) and (not sniperIdle) and (not shotgunIdle) then return end
+
         if isShotgun and currentAmmo <= 0 then return end
 
         local cond = 2
@@ -5437,6 +5488,7 @@ _G.AimTouch = function()
         elseif isShotgun and _G.XthrlenConfig.AimTouchSG then
             cond = _G.XthrlenState.CustomTextData.AimTouchSGCond or 1
             if _G.XthrlenConfig.AimTouchSGAutoFire then cond = 2 end
+            if shotgunIdle then cond = 2 end
             if cond == 1 and not isFiring then return end
             prioMode = _G.XthrlenState.CustomTextData.AimTouchSGPrio or 1
             boneIdx = _G.XthrlenState.CustomTextData.AimTouchSGBone or 2
@@ -5450,6 +5502,7 @@ _G.AimTouch = function()
         elseif isADS then
             if isSniper and _G.XthrlenConfig.AimTouchScopeSniper then
                 cond = _G.XthrlenState.CustomTextData.AimTouchSniperCond or 2
+                if sniperIdle then cond = 2 end
                 if cond == 1 and not isFiring then return end
                 prioMode = _G.XthrlenState.CustomTextData.AimTouchSniperPrio or 1
                 boneIdx = _G.XthrlenState.CustomTextData.AimTouchSniperBone or 1
@@ -5518,6 +5571,7 @@ _G.AimTouch = function()
         local bestScore = 99999999 
         
         local selected=_G.LunarFeatures.Settings.AimTarget
+        if sniperIdle then selected=1 end -- scope aim always locks the head
         boneIdx=selected==2 and 2 or (selected==3 and 5 or 1)
         local selBoneName=selected==2 and "spine_03" or (selected==3 and "calf_l" or "head")
 
@@ -7449,7 +7503,8 @@ do
             if now>=F.AimDue-0.000001 or (F.AimLastTick and now<F.AimLastTick) then
                 checked(F.Aim.Tick,"Aim.Render")
                 F.AimLastTick=now
-                F.AimDue=now+((pawn and pawn.bIsWeaponFiring) and 0.011 or 0.05)
+                local idleAim=F.Settings.AimSniperScope==true or F.Settings.AimShotgun==true
+                F.AimDue=now+((pawn and pawn.bIsWeaponFiring) and 0.011 or (idleAim and 0.02 or 0.05))
                 if not (pawn and pawn.bIsWeaponFiring) then F.AimLastClock=nil end
             end
         end
@@ -7467,7 +7522,7 @@ do
         local function due(deadline) nextDelay=math.min(nextDelay,math.max(0.001,(deadline or now)-now)) end
         local o=_G.g_Botmater_ESPOptions
         if o.Name or o.Line or o.Health or o.Distance or o.EnemyCounter then due(F.V1Due) end
-        if F.Settings.AimEnabled then due(F.AimDue) end
+        if F.Settings.AimEnabled or F.Settings.AimSniperScope==true or F.Settings.AimShotgun==true then due(F.AimDue) end
         if F.Settings.Aim2Enabled then nextDelay=math.min(nextDelay,F.Aim2.NextInterval(now))
         elseif next(F.Aim2.Records) then due(F.Aim2RestoreDue) end
         if F.Settings.MortarEnabled then nextDelay=math.min(nextDelay,F.Mortar.NextInterval(now)) end
