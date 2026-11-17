@@ -1608,7 +1608,7 @@ end
 -- Feature rows, option values and authentication stay owned by this script.
 local g_vipserver_EnsureHackMenu
 do
-    local VERSION = "LunarSettings.V9.5.MenuFix"
+    local VERSION = "LunarSettings.V9.6.MenuFix"
     local function runtime()
         local state = _G.LunarNativeSettingsRuntime
         if type(state) ~= "table" then state = {}; _G.LunarNativeSettingsRuntime = state end
@@ -1993,7 +1993,7 @@ Other[#Other+1] = {
         state.Ready = state.Registered and state.HookInstalled == true
         if state.Ready then
             state.LastError = nil
-            _G.HackMenuInitialized = "VIP_SERVER_NATIVE_SETTINGS_V9_5"
+            _G.HackMenuInitialized = "VIP_SERVER_NATIVE_SETTINGS_V9_6"
         else state.LastError = "SETTINGS_UI_MANAGER_NOT_READY" end
         return state.Ready
     end
@@ -5466,6 +5466,14 @@ _G.AimTouch = function()
         local shotgunIdle=idleSettings.AimShotgun==true and isShotgun
         if (not isFiring) and (not sniperIdle) and (not shotgunIdle) then return end
 
+        -- V9.6: idle modes glide instead of snapping. Reset the smoothing state
+        -- as soon as both idle modes are off so firing aim stays untouched.
+        local smoothIdle = sniperIdle or shotgunIdle
+        if not smoothIdle then
+            _G.LunarAimStickyTarget=nil;_G.LunarAimFilter=nil;_G.LunarAimTargetCache=nil
+            _G.XthrlenState.aimVelP=nil;_G.XthrlenState.aimVelY=nil
+        end
+
         -- Lightweight state for debugging: _G.LunarAimDiag in the Lua console.
         local diag=_G.LunarAimDiag
         if type(diag)~="table" then diag={}; _G.LunarAimDiag=diag end
@@ -5563,8 +5571,19 @@ _G.AimTouch = function()
             igBot = _G.XthrlenConfig.AimTouchHipIgBot
         end
 
-        local currentMaxDist = maxDistMeters * 100 
-        local enemies = _G.GetEnemyTargetsFromActors(currentMaxDist)
+        local currentMaxDist = maxDistMeters * 100
+        -- V9.6: reuse the scan briefly in idle modes. Rescanning every actor at
+        -- 100 Hz is what made the lock stutter on crowded maps.
+        local aimClock=_G.LunarFeatures.Now()
+        local enemies
+        local scanCache=_G.LunarAimTargetCache
+        if smoothIdle and scanCache and scanCache.range==currentMaxDist
+            and aimClock>=scanCache.time and (aimClock-scanCache.time)<0.06 then
+            enemies=scanCache.enemies
+        else
+            enemies=_G.GetEnemyTargetsFromActors(currentMaxDist)
+            if smoothIdle and enemies and #enemies>0 then _G.LunarAimTargetCache={time=aimClock,enemies=enemies,range=currentMaxDist} end
+        end
         if not enemies or #enemies == 0 then return end
         
         local FVector2D = AimV2
@@ -5595,6 +5614,28 @@ _G.AimTouch = function()
         if sniperIdle then selected=1 end -- scope aim always locks the head
         boneIdx=selected==2 and 2 or (selected==3 and 5 or 1)
         local selBoneName=selected==2 and "spine_03" or (selected==3 and "calf_l" or "head")
+
+        -- V9.6: idle lock stays on one enemy; it only rescans after losing it.
+        local stickyTarget=smoothIdle and _G.LunarAimStickyTarget
+        local stickyOnly=false
+        if stickyTarget and slua.isValid(stickyTarget) then
+            local stickyAlive=true
+            if type(stickyTarget.IsAlive)=="function" then
+                local okAlive,alive=pcall(function() return stickyTarget:IsAlive() end)
+                stickyAlive=okAlive and alive==true
+            end
+            if stickyAlive then
+                -- Lost range: drop the lock so the scan can pick a new enemy.
+                local okDist,dist=pcall(function() return player:GetDistanceTo(stickyTarget) end)
+                if okDist and type(dist)=="number" and dist>currentMaxDist then stickyAlive=false end
+            end
+            if stickyAlive then
+                enemies={stickyTarget}
+                stickyOnly=true
+            else
+                _G.LunarAimStickyTarget=nil
+            end
+        end
 
         for i, target in ipairs(enemies) do
             repeat
@@ -5675,6 +5716,16 @@ _G.AimTouch = function()
             
             until true
         end
+
+        -- V9.6: remember the idle lock so the next tick can track it directly.
+        if smoothIdle then
+            if bestTarget then
+                _G.LunarAimStickyTarget=bestTarget
+            elseif stickyOnly then
+                _G.LunarAimStickyTarget=nil
+                return
+            end
+        end
         
         local cache=_G.AimTouchVisCache
         local clock=_G.LunarFeatures.Now()
@@ -5721,6 +5772,24 @@ _G.AimTouch = function()
             end)
         end
 
+        -- V9.6: low-pass the bone position so animation and network jitter do
+        -- not shake the camera. A new/stale target restarts the filter.
+        if smoothIdle then
+            local fNow=_G.LunarFeatures.Now()
+            local filter=_G.LunarAimFilter
+            if filter and filter.target==bestTarget and fNow>=filter.time and (fNow-filter.time)<0.20 then
+                local elapsed=math.max(0.001,math.min(0.05,fNow-filter.time))
+                local k=1.0-math.exp(-elapsed/0.045)
+                filter.x=filter.x+(finalBonePos.X-filter.x)*k
+                filter.y=filter.y+(finalBonePos.Y-filter.y)*k
+                filter.z=filter.z+(finalBonePos.Z-filter.z)*k
+                filter.time=fNow
+                finalBonePos.X=filter.x;finalBonePos.Y=filter.y;finalBonePos.Z=filter.z
+            else
+                _G.LunarAimFilter={target=bestTarget,x=finalBonePos.X,y=finalBonePos.Y,z=finalBonePos.Z,time=fNow}
+            end
+        end
+
         if isADS and isFiring then
             local dist = player:GetDistanceTo(bestTarget) / 100.0
             finalBonePos.Z = finalBonePos.Z - (dist * 1.1)
@@ -5759,18 +5828,24 @@ _G.AimTouch = function()
         -- at most half the previous full correction; low settings are gentler.
         local now=_G.LunarFeatures.Now()
         local previous=_G.LunarFeatures.AimLastClock
-        local dt=previous and math.max(0.001,math.min(0.05,now-previous)) or 0.011
+        -- V9.6: a stale gap (target lost for a while) must not turn into one
+        -- huge correction, so any long pause restarts at the normal tick time.
+        local dt=0.012
+        if previous then
+            local gap=now-previous
+            if gap>=0.0005 and gap<=0.05 then dt=math.max(0.004,math.min(0.032,gap)) end
+        end
         _G.LunarFeatures.AimLastClock=now
         local normalized=(_G.LunarFeatures.Clamp(speedVal,100,120,100)-100)/20.0
         local strength=0.02+0.48*normalized*normalized
         local maxTurnRate=10.0+35.0*normalized
         local alphaCap=0.5
-        if sniperIdle or shotgunIdle then
-            -- V9.5: idle aim locks on fast (scope head / close shotgun) instead
-            -- of drifting. Aim speed still scales it a little.
-            strength=0.88+0.08*normalized
-            maxTurnRate=1500.0+500.0*normalized
-            alphaCap=0.95
+        if smoothIdle then
+            -- V9.6: fast but continuous. Moderate alpha + a turn-rate cap gives
+            -- a glide instead of a 15-degree jump every tick.
+            strength=0.46+0.18*normalized
+            maxTurnRate=850.0+220.0*normalized
+            alphaCap=0.62
         end
         local alpha=math.min(alphaCap,1.0-(1.0-strength)^(dt/0.011))
 
@@ -5787,6 +5862,29 @@ _G.AimTouch = function()
         if stepLength>stepLimit then
             local scale=stepLimit/stepLength
             pitchStep=pitchStep*scale;yawStep=yawStep*scale
+        end
+        if smoothIdle then
+            -- V9.6: acceleration limit so the lock ramps in and eases out
+            -- instead of starting/stopping instantly (that felt like lag).
+            local state=_G.XthrlenState
+            local lastP=state.aimVelP or 0
+            local lastY=state.aimVelY or 0
+            local dvP,dvY=pitchStep-lastP,yawStep-lastY
+            local dvLength=math.sqrt(dvP*dvP+dvY*dvY)
+            local dvLimit=26000.0*dt*dt
+            -- Deceleration may be 4x faster. Without that the camera coasts past
+            -- the head at high aim speed, which reads as a bounce.
+            if math.sqrt(pitchStep*pitchStep+yawStep*yawStep)<math.sqrt(lastP*lastP+lastY*lastY) then
+                dvLimit=dvLimit*4.0
+            end
+            if dvLimit>0 and dvLength>dvLimit then
+                local k=dvLimit/dvLength
+                pitchStep=lastP+dvP*k;yawStep=lastY+dvY*k
+            end
+            if math.sqrt(pitchStep*pitchStep+yawStep*yawStep)<0.015 then
+                pitchStep=0;yawStep=0
+            end
+            state.aimVelP,state.aimVelY=pitchStep,yawStep
         end
         local out={Pitch=currentRot.Pitch+pitchStep,Yaw=currentRot.Yaw+yawStep,Roll=0}
 
@@ -7487,6 +7585,8 @@ do
             checked(F.Mortar.Stop,"Mortar.Reset")
             F.Wall.ConsoleWorld=nil
             _G.AimTouchVisCache={}
+            _G.LunarAimStickyTarget=nil;_G.LunarAimFilter=nil;_G.LunarAimTargetCache=nil
+            _G.XthrlenState.aimVelP=nil;_G.XthrlenState.aimVelY=nil
             _G.XthrlenState.offPitch=0;_G.XthrlenState.offYaw=0
             F.AimLastClock=nil
             F.V1Due=0;F.AimDue=0;F.IpadDue=0
@@ -7528,13 +7628,17 @@ do
         end
         if F.Settings.MortarEnabled and (now>=F.Mortar.Due-0.000001 or (F.Mortar.LastTime and now<F.Mortar.LastTime)) then checked(F.Mortar.Tick,"Mortar.Tick") end
 
-        if F.Settings.AimEnabled then
+        local aimRunning=F.Settings.AimEnabled or F.Settings.AimSniperScope==true or F.Settings.AimShotgun==true
+        if aimRunning then
             if now>=F.AimDue-0.000001 or (F.AimLastTick and now<F.AimLastTick) then
                 checked(F.Aim.Tick,"Aim.Render")
                 F.AimLastTick=now
                 local idleAim=F.Settings.AimSniperScope==true or F.Settings.AimShotgun==true
-                F.AimDue=now+((pawn and pawn.bIsWeaponFiring) and 0.011 or (idleAim and 0.02 or 0.05))
-                if not (pawn and pawn.bIsWeaponFiring) then F.AimLastClock=nil end
+                -- V9.6: 100 Hz while idle gives small, even steps (smooth glide).
+                F.AimDue=now+((pawn and pawn.bIsWeaponFiring) and 0.011 or (idleAim and 0.010 or 0.05))
+                -- Keep AimLastClock in idle mode so dt is real; a long pause is
+                -- handled inside AimTouch instead of being reset to a fake dt.
+                if not (pawn and pawn.bIsWeaponFiring) and not idleAim then F.AimLastClock=nil end
             end
         end
         if F.Settings.WallEnabled then checked(F.Wall.Tick,"Wall.Tick",now,pawn,pc) end
