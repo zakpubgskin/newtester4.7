@@ -35,6 +35,7 @@ _G.MWConfig = _G.MWConfig or {
     SpeedRunV2     = false,
     FastCar        = false,
     VehicleInstantStop = false,
+    NoSmoke        = false,   -- No Smoke (hide smoke effects)
 }
 
 -- V9.8: Skin anti-ban gate. ON (default) = skins sirf client par dikhti hain:
@@ -1971,6 +1972,10 @@ do
     Other[#Other+1]={Key="LunarMortarAim",UI=AliasMap.Switcher,Text="Mortar Aim (mortar lock)",
         GetFunc=function() return featureState().Settings.MortarEnabled end,
         SetFunc=function(c,v) featureState().SetMortar(value(c,v));return true end}
+    -- No Smoke (hide smoke effects from grenades/smoke)
+    Other[#Other+1]={Key="LunarNoSmoke",UI=AliasMap.Switcher,Text="No Smoke (no smoke effects)",
+        GetFunc=function() return featureState().Settings.NoSmoke end,
+        SetFunc=function(c,v) featureState().SetNoSmoke(value(c,v));return true end}
     local names={"Pink","White","Cyan","Green","Yellow","Saffron","Red"}
     for i,entry in ipairs({{"WallVisible","Wall Visible Color"},{"WallOccluded","Wall Behind-Wall Color"}}) do
         local key,label=entry[1],entry[2]
