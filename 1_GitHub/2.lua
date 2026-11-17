@@ -1608,7 +1608,7 @@ end
 -- Feature rows, option values and authentication stay owned by this script.
 local g_vipserver_EnsureHackMenu
 do
-    local VERSION = "LunarSettings.V9.4.MenuFix"
+    local VERSION = "LunarSettings.V9.5.MenuFix"
     local function runtime()
         local state = _G.LunarNativeSettingsRuntime
         if type(state) ~= "table" then state = {}; _G.LunarNativeSettingsRuntime = state end
@@ -1993,7 +1993,7 @@ Other[#Other+1] = {
         state.Ready = state.Registered and state.HookInstalled == true
         if state.Ready then
             state.LastError = nil
-            _G.HackMenuInitialized = "VIP_SERVER_NATIVE_SETTINGS_V9_4"
+            _G.HackMenuInitialized = "VIP_SERVER_NATIVE_SETTINGS_V9_5"
         else state.LastError = "SETTINGS_UI_MANAGER_NOT_READY" end
         return state.Ready
     end
@@ -5026,6 +5026,8 @@ do
             local data=_G.XthrlenState.CustomTextData
             data.AimTouchHipSpeed=settings.AimSpeed
             data.AimTouchScopeSpeed=settings.AimSpeed
+            data.AimTouchSniperSpeed=settings.AimSpeed
+            data.AimTouchSGSpeed=settings.AimSpeed
         end
         F.MarkDirty()
     end
@@ -5125,6 +5127,7 @@ do
             data.AimTouchSGCond=2
             data.AimTouchSGFOV=math.max(40,settings.AimFOV)
             data.AimTouchSGDist=30
+            data.AimTouchSGSpeed=settings.AimSpeed
         end
         F.AimLastClock=nil;F.AimDue=0
         F.MarkDirty(true)
@@ -5341,6 +5344,11 @@ _G.XthrlenState.CustomTextData.AimTouchSniperFOV    = _G.LunarFeatures.Settings.
 _G.XthrlenState.CustomTextData.AimTouchSniperSpeed  = _G.LunarFeatures.Settings.AimSpeed
 _G.XthrlenState.CustomTextData.AimTouchSniperPred   = 0
 
+_G.XthrlenState.CustomTextData.AimTouchSGCond   = 2
+_G.XthrlenState.CustomTextData.AimTouchSGSpeed  = _G.LunarFeatures.Settings.AimSpeed
+_G.XthrlenState.CustomTextData.AimTouchSGFOV    = math.max(40,_G.LunarFeatures.Settings.AimFOV)
+_G.XthrlenState.CustomTextData.AimTouchSGDist   = 30
+
 _G.XthrlenState.offPitch = _G.XthrlenState.offPitch or 0
 _G.XthrlenState.offYaw   = _G.XthrlenState.offYaw   or 0
 
@@ -5417,13 +5425,17 @@ _G.AimTouch = function()
             local wID = type(weapon.GetWeaponID) == "function" and weapon:GetWeaponID() or 0
             local wName = type(weapon.GetWeaponName) == "function" and weapon:GetWeaponName() or ""
             
-            if (wID >= 1030000 and wID < 1040000) or wName:find("S686") or wName:find("S1897") or wName:find("S12") or wName:find("DBS") or wName:find("M1014") then 
-                isShotgun = true 
+            local wLower=wName:lower()
+            if (wID >= 1030000 and wID < 1040000)
+                or wName:find("S686") or wName:find("S1897") or wName:find("S12") or wName:find("DBS") or wName:find("M1014")
+                or wName:find("NS2000") or wName:find("DP12") or wName:find("M1887") or wName:find("AA12") or wName:find("Saiga")
+                or wLower:find("shotgun") or wLower:find("shot_gun") or wLower:find("sawed") then
+                isShotgun = true
             end
             if wName:find("Kar98") or wName:find("M24") or wName:find("AWM") or wName:find("Mosin") or wName:find("Win94") or wName:find("AMR") or wName:find("SKS") or wName:find("SLR") or wName:find("Mini") or wName:find("Mk14") or wName:find("QBU") or wName:find("Mk12") or wName:find("VSS") then
                 isSniper = true
             end
-            if wName:lower():find("mortar") or wName:lower():find("cối") then
+            if wLower:find("mortar") or wLower:find("cối") then
                 isMortar = true
             end
             
@@ -5447,14 +5459,23 @@ _G.AimTouch = function()
             _G.XthrlenState.IsAutoFiring = false
         end
 
-        -- V9.4: idle aim permission. Sniper = ADS with a sniper rifle, shotgun =
-        -- hipfire (no scope) with a shotgun. Both run without firing.
+        -- V9.4/V9.5: idle aim permission. Sniper = ADS with a sniper rifle,
+        -- shotgun = any shotgun (hipfire preferred). Both run without firing.
         local idleSettings=_G.LunarFeatures.Settings
         local sniperIdle=idleSettings.AimSniperScope==true and isSniper and isADS
-        local shotgunIdle=idleSettings.AimShotgun==true and isShotgun and (not isADS)
+        local shotgunIdle=idleSettings.AimShotgun==true and isShotgun
         if (not isFiring) and (not sniperIdle) and (not shotgunIdle) then return end
 
-        if isShotgun and currentAmmo <= 0 then return end
+        -- Lightweight state for debugging: _G.LunarAimDiag in the Lua console.
+        local diag=_G.LunarAimDiag
+        if type(diag)~="table" then diag={}; _G.LunarAimDiag=diag end
+        diag.Shotgun=isShotgun; diag.Sniper=isSniper; diag.ADS=isADS==true; diag.Firing=isFiring==true
+        diag.SniperIdle=sniperIdle==true; diag.ShotgunIdle=shotgunIdle==true
+        pcall(function()
+            if slua.isValid(weapon) and type(weapon.GetWeaponName)=="function" then diag.Weapon=weapon:GetWeaponName() end
+        end)
+
+        if isShotgun and currentAmmo <= 0 and not shotgunIdle then return end
 
         local cond = 2
         local prioMode = 1
@@ -5742,8 +5763,16 @@ _G.AimTouch = function()
         _G.LunarFeatures.AimLastClock=now
         local normalized=(_G.LunarFeatures.Clamp(speedVal,100,120,100)-100)/20.0
         local strength=0.02+0.48*normalized*normalized
-        local alpha=math.min(0.5,1.0-(1.0-strength)^(dt/0.011))
         local maxTurnRate=10.0+35.0*normalized
+        local alphaCap=0.5
+        if sniperIdle or shotgunIdle then
+            -- V9.5: idle aim locks on fast (scope head / close shotgun) instead
+            -- of drifting. Aim speed still scales it a little.
+            strength=0.88+0.08*normalized
+            maxTurnRate=1500.0+500.0*normalized
+            alphaCap=0.95
+        end
+        local alpha=math.min(alphaCap,1.0-(1.0-strength)^(dt/0.011))
 
         -- Camera-relative ADS error already accounts for view/controller offset.
         -- Repeatedly accumulating target error causes windup and unwanted swipes.
