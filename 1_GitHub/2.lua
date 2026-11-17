@@ -1618,7 +1618,7 @@ end
 -- Feature rows, option values and authentication stay owned by this script.
 local g_vipserver_EnsureHackMenu
 do
-    local VERSION = "LunarSettings.V9.11.WallFix"
+    local VERSION = "LunarSettings.V9.12.AimNested"
     local function runtime()
         local state = _G.LunarNativeSettingsRuntime
         if type(state) ~= "table" then state = {}; _G.LunarNativeSettingsRuntime = state end
@@ -1807,47 +1807,116 @@ do
             function() return featureState().Settings.IpadFOV end,"SetIpadFOV"))
     end
     -- V9.7: Aimbot ka apna alag section (AIMBOT tab). Rows flat hain taaki
-    -- sab options bina expand kiye seedha dikhein.
+    -- V9.12: Nested AIMBOT section. Master ON karne par neeche options ayengi.
+    -- Har sub-section (sniper/shotgun) ka apna expand hone wala block hai
+    -- jisme uske apne FOV/speed/dist/vis/knock/target hain.
     local Aim={}
-    Aim[#Aim+1]={Key="LunarAim",UI=AliasMap.Switcher,Text="Aimbot V1 (Master - sab aim on/off)",
-        EventType=F.AimSettingsEventType,EventID=F.AimSettingsEventID,
+    -- --- Aimbot V1 Master (expandable parent) ---
+    Aim[#Aim+1]={Key="LunarAim",UI=AliasMap.Switcher,Text="Aimbot V1 (Master - aim on/off)",
+        ExpandIndex=0,EventType=F.AimSettingsEventType,EventID=F.AimSettingsEventID,
         GetFunc=function() return featureState().Settings.AimEnabled end,
         SetFunc=function(c,v) featureState().SetAim(value(c,v));return true end}
-    Aim[#Aim+1]={Key="LunarAimSniper",UI=AliasMap.Switcher,Text="Sniper Scope Aim (head lock, no fire)",
-        GetFunc=function() return featureState().Settings.AimSniperScope end,
-        SetFunc=function(c,v) featureState().SetAimSniperScope(value(c,v));return true end}
-    Aim[#Aim+1]={Key="LunarAimShotgun",UI=AliasMap.Switcher,Text="Shotgun Aim (hipfire, no scope)",
-        GetFunc=function() return featureState().Settings.AimShotgun end,
-        SetFunc=function(c,v) featureState().SetAimShotgun(value(c,v));return true end}
     if sliderReady then
-        Aim[#Aim+1]=rangeItem("LunarAimSpeed","Aim Speed (smoothness)",100,120,nil,
+        Aim[#Aim+1]=rangeItem("LunarAimSpeed","Aim Speed",100,120,"LunarAim",
             function() return featureState().Settings.AimSpeed end,"SetAimSpeed")
     end
-    Aim[#Aim+1]={Key="LunarAimTarget",UI=AliasMap.Switcher,Text="Aim Target (bone select)",
-        SwitcherText={"Head","Body","Leg"},SwitcherValue={1,2,3},
+    Aim[#Aim+1]={Key="LunarAimTarget",UI=AliasMap.Switcher,Text="Aim Target (Head/Body/Leg)",
+        ExpandHandle="LunarAim",SwitcherText={"Head","Body","Leg"},SwitcherValue={1,2,3},
         GetFunc=function() return featureState().Settings.AimTarget end,
         SetFunc=function(c,v) featureState().SetAimTarget(value(c,v));return true end}
     if sliderReady then
-        Aim[#Aim+1]=rangeItem("LunarAimFOV","Aim FOV (lock circle)",10,100,nil,
+        Aim[#Aim+1]=rangeItem("LunarAimFOV","Aim FOV",10,100,"LunarAim",
             function() return featureState().Settings.AimFOV end,"SetAimFOV")
     end
     if sliderReady then
-        Aim[#Aim+1]=rangeItem("LunarAimDist","Aim Distance (max lock range)",50,400,nil,
+        Aim[#Aim+1]=rangeItem("LunarAimDist","Aim Distance (meter)",50,400,"LunarAim",
             function() return featureState().Settings.AimDist end,"SetAimDist")
     end
     Aim[#Aim+1]={Key="LunarAimVis",UI=AliasMap.Switcher,Text="Visible Only (wall check)",
+        ExpandHandle="LunarAim",
         GetFunc=function() return featureState().Settings.AimVisCheck end,
         SetFunc=function(c,v) featureState().SetAimVisCheck(value(c,v));return true end}
     Aim[#Aim+1]={Key="LunarAimKnock",UI=AliasMap.Switcher,Text="Ignore Knocked (no downed)",
+        ExpandHandle="LunarAim",
         GetFunc=function() return featureState().Settings.AimIgKnock end,
         SetFunc=function(c,v) featureState().SetAimIgKnock(value(c,v));return true end}
     Aim[#Aim+1]={Key="LunarAimBot",UI=AliasMap.Switcher,Text="Ignore Bots (real players only)",
+        ExpandHandle="LunarAim",
         GetFunc=function() return featureState().Settings.AimIgBot end,
         SetFunc=function(c,v) featureState().SetAimIgBot(value(c,v));return true end}
-    -- V9.9: ADS only + kick (recoil) control.
+
+    -- --- Sniper Scope Aim (expandable parent) ---
+    Aim[#Aim+1]={Key="LunarAimSniper",UI=AliasMap.Switcher,Text="Sniper Scope Aim (head lock, no fire)",
+        ExpandIndex=0,
+        GetFunc=function() return featureState().Settings.AimSniperScope end,
+        SetFunc=function(c,v) featureState().SetAimSniperScope(value(c,v));return true end}
+    if sliderReady then
+        Aim[#Aim+1]=rangeItem("LunarSniperFOV","Sniper FOV",10,100,"LunarAimSniper",
+            function() return featureState().Settings.SniperFOV end,
+            function(v) return featureState().SetAimManual("SniperFOV",v) end)
+    end
+    if sliderReady then
+        Aim[#Aim+1]=rangeItem("LunarSniperSpeed","Sniper Speed",100,120,"LunarAimSniper",
+            function() return featureState().Settings.SniperSpeed end,
+            function(v) return featureState().SetAimManual("SniperSpeed",v) end)
+    end
+    if sliderReady then
+        Aim[#Aim+1]=rangeItem("LunarSniperDist","Sniper Distance (meter)",50,400,"LunarAimSniper",
+            function() return featureState().Settings.SniperDist end,
+            function(v) return featureState().SetAimManual("SniperDist",v) end)
+    end
+    Aim[#Aim+1]={Key="LunarSniperVis",UI=AliasMap.Switcher,Text="Visible Only",
+        ExpandHandle="LunarAimSniper",
+        GetFunc=function() return featureState().Settings.AimVisCheck end,
+        SetFunc=function(c,v) featureState().SetAimVisCheck(value(c,v));return true end}
+    Aim[#Aim+1]={Key="LunarSniperKnock",UI=AliasMap.Switcher,Text="Ignore Knocked",
+        ExpandHandle="LunarAimSniper",
+        GetFunc=function() return featureState().Settings.AimIgKnock end,
+        SetFunc=function(c,v) featureState().SetAimIgKnock(value(c,v));return true end}
+    Aim[#Aim+1]={Key="LunarSniperTarget",UI=AliasMap.Switcher,Text="Target (Head/Body/Leg)",
+        ExpandHandle="LunarAimSniper",SwitcherText={"Head","Body","Leg"},SwitcherValue={1,2,3},
+        GetFunc=function() return featureState().Settings.AimTarget end,
+        SetFunc=function(c,v) featureState().SetAimTarget(value(c,v));return true end}
+
+    -- --- Shotgun Aim (expandable parent) ---
+    Aim[#Aim+1]={Key="LunarAimShotgun",UI=AliasMap.Switcher,Text="Shotgun Aim (hipfire, no scope)",
+        ExpandIndex=0,
+        GetFunc=function() return featureState().Settings.AimShotgun end,
+        SetFunc=function(c,v) featureState().SetAimShotgun(value(c,v));return true end}
+    if sliderReady then
+        Aim[#Aim+1]=rangeItem("LunarSgFOV","Shotgun FOV",10,100,"LunarAimShotgun",
+            function() return featureState().Settings.SgFOV end,
+            function(v) return featureState().SetAimManual("SgFOV",v) end)
+    end
+    if sliderReady then
+        Aim[#Aim+1]=rangeItem("LunarSgSpeed","Shotgun Speed",100,120,"LunarAimShotgun",
+            function() return featureState().Settings.SgSpeed end,
+            function(v) return featureState().SetAimManual("SgSpeed",v) end)
+    end
+    if sliderReady then
+        Aim[#Aim+1]=rangeItem("LunarSgDist","Shotgun Distance (meter)",10,200,"LunarAimShotgun",
+            function() return featureState().Settings.SgDist end,
+            function(v) return featureState().SetAimManual("SgDist",v) end)
+    end
+    Aim[#Aim+1]={Key="LunarSgVis",UI=AliasMap.Switcher,Text="Visible Only",
+        ExpandHandle="LunarAimShotgun",
+        GetFunc=function() return featureState().Settings.AimVisCheck end,
+        SetFunc=function(c,v) featureState().SetAimVisCheck(value(c,v));return true end}
+    Aim[#Aim+1]={Key="LunarSgKnock",UI=AliasMap.Switcher,Text="Ignore Knocked",
+        ExpandHandle="LunarAimShotgun",
+        GetFunc=function() return featureState().Settings.AimIgKnock end,
+        SetFunc=function(c,v) featureState().SetAimIgKnock(value(c,v));return true end}
+    Aim[#Aim+1]={Key="LunarSgTarget",UI=AliasMap.Switcher,Text="Target (Head/Body/Leg)",
+        ExpandHandle="LunarAimShotgun",SwitcherText={"Head","Body","Leg"},SwitcherValue={1,2,3},
+        GetFunc=function() return featureState().Settings.AimTarget end,
+        SetFunc=function(c,v) featureState().SetAimTarget(value(c,v));return true end}
+
+    -- --- ADS only (standalone toggle) ---
     Aim[#Aim+1]={Key="LunarAimAdsOnly",UI=AliasMap.Switcher,Text="ADS Only (hipfire aim band)",
         GetFunc=function() return featureState().Settings.AimOnlyADS end,
         SetFunc=function(c,v) featureState().SetAimOnlyADS(value(c,v));return true end}
+
+    -- --- Kick Control (expandable parent) ---
     Aim[#Aim+1]={Key="LunarKick",UI=AliasMap.Switcher,Text="Kick Control (recoil remove)",
         ExpandIndex=0,EventType=F.AimSettingsEventType,EventID=F.AimSettingsEventID,
         GetFunc=function() return featureState().Settings.KickControl end,
@@ -1856,9 +1925,9 @@ do
         Aim[#Aim+1]=rangeItem("LunarKickAmt","Kick Amount (0=off, 100=max)",0,100,"LunarKick",
             function() return featureState().Settings.KickAmount end,"SetKickAmount")
     end
-    -- V9.9: manual scope tuning. Parent ON = neeche ki per-mode values global
-    -- Aim FOV / speed / range ki jagah use hoti hain.
-    Aim[#Aim+1]={Key="LunarAimManual",UI=AliasMap.Switcher,Text="Manual Scope (per-weapon FOV/speed)",
+
+    -- --- Manual Scope (expandable parent) ---
+    Aim[#Aim+1]={Key="LunarAimManual",UI=AliasMap.Switcher,Text="Manual Scope (per-weapon FOV/speed/dist)",
         ExpandIndex=0,EventType=F.AimSettingsEventType,EventID=F.AimSettingsEventID,
         GetFunc=function() return featureState().Settings.ScopeManual end,
         SetFunc=function(c,v) featureState().SetAimManualMode(value(c,v));return true end}
@@ -1869,19 +1938,12 @@ do
                 function(v) return featureState().SetAimManual(settingKey,v) end)
         end
         Aim[#Aim+1]=manual("LunarHipFOV","HipFOV","Hipfire FOV",10,100)
-        Aim[#Aim+1]=manual("LunarHipSpeed","HipSpeed","Hipfire Speed",100,120)
-        Aim[#Aim+1]=manual("LunarHipDist","HipDist","Hipfire Range",50,400)
+        Aim[#Aim+1]=manual("LunarHipSpeed","Hipfire Speed",100,120)
+        Aim[#Aim+1]=manual("LunarHipDist","Hipfire Distance (meter)",50,400)
         Aim[#Aim+1]=manual("LunarAdsFOV","AdsFOV","ADS FOV",10,100)
         Aim[#Aim+1]=manual("LunarAdsSpeed","AdsSpeed","ADS Speed",100,120)
-        Aim[#Aim+1]=manual("LunarAdsDist","AdsDist","ADS Range",50,400)
-        Aim[#Aim+1]=manual("LunarSniperFOV","SniperFOV","Sniper FOV",10,100)
-        Aim[#Aim+1]=manual("LunarSniperSpeed","SniperSpeed","Sniper Speed",100,120)
-        Aim[#Aim+1]=manual("LunarSniperDist","SniperDist","Sniper Range",50,400)
-        Aim[#Aim+1]=manual("LunarSgFOV","SgFOV","Shotgun FOV",10,100)
-        Aim[#Aim+1]=manual("LunarSgSpeed","SgSpeed","Shotgun Speed",100,120)
-        Aim[#Aim+1]=manual("LunarSgDist","SgDist","Shotgun Range",10,200)
+        Aim[#Aim+1]=manual("LunarAdsDist","AdsDist","ADS Distance (meter)",50,400)
     end
-    -- V9.3: ESP master switch + range slider.
     Other[#Other+1]={Key="LunarEspMaster",UI=AliasMap.Switcher,Text="ESP Master (enemy esp on/off)",ExpandIndex=0,
         GetFunc=function() return _G.g_vipserver_VIPShotESP.Enabled==true end,
         SetFunc=function(c,v)
@@ -2054,7 +2116,7 @@ do
         state.Ready = state.Registered and state.HookInstalled == true
         if state.Ready then
             state.LastError = nil
-            _G.HackMenuInitialized = "VIP_SERVER_NATIVE_SETTINGS_V9_11"
+            _G.HackMenuInitialized = "VIP_SERVER_NATIVE_SETTINGS_V9_12"
         else state.LastError = "SETTINGS_UI_MANAGER_NOT_READY" end
         return state.Ready
     end
