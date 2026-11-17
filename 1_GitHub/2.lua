@@ -1618,7 +1618,7 @@ end
 -- Feature rows, option values and authentication stay owned by this script.
 local g_vipserver_EnsureHackMenu
 do
-    local VERSION = "LunarSettings.V9.10.MenuClear"
+    local VERSION = "LunarSettings.V9.11.WallFix"
     local function runtime()
         local state = _G.LunarNativeSettingsRuntime
         if type(state) ~= "table" then state = {}; _G.LunarNativeSettingsRuntime = state end
@@ -2054,7 +2054,7 @@ do
         state.Ready = state.Registered and state.HookInstalled == true
         if state.Ready then
             state.LastError = nil
-            _G.HackMenuInitialized = "VIP_SERVER_NATIVE_SETTINGS_V9_10"
+            _G.HackMenuInitialized = "VIP_SERVER_NATIVE_SETTINGS_V9_11"
         else state.LastError = "SETTINGS_UI_MANAGER_NOT_READY" end
         return state.Ready
     end
@@ -5359,7 +5359,7 @@ do
         if not settings.WallEnabled and F.Wall then F.Wall.Stop() end
         if settings.WallEnabled and F.Wall then
             -- Fresh manual enable clears the quarantine counter for this match.
-            F.Wall.Errors=0;F.Wall.Quarantine=false
+            F.Wall.Errors=0;F.Wall.Quarantine=false;F.Wall.PausedTill=0
             _G.LunarWallNotice=nil
         end
         F.MarkDirty(true)
@@ -6227,24 +6227,26 @@ do
     end
     W.UpdateColors()
     W.SafeMode = F.Settings.WallSafeMode ~= false
-    -- V9.10: per-tick error dedup. colorCalls mein ~20 native calls hain;
-    -- agar sab fail hon to ek tick mein 20+ errors count hote the aur 140 ka
-    -- limit 2-3 second mein hit ho jata tha, jis se wall khud band ho jata tha.
-    -- Ab ek tick mein max 1 error count hoga.
+    -- V9.10: native call fail hone par Wall setting kabhi OFF nahi hoti.
+    -- Sirf us tick ko skip karte hain, notice dete hain. Safe mode pehle hi
+    -- static meshes skip karta hai taak errors kam aayein.
     W.LastErrorTick=-1
+    W.PausedTill=0
     local function noteError(call,err)
         if W.LastErrorTick==W.LastTick then return end
         W.LastErrorTick=W.LastTick
         W.Errors=(W.Errors or 0)+1
         F.Error("Wall."..tostring(call),err)
-        -- Repeated failures mean this match/mode does not accept the native
-        -- dyeing calls. Step down to safe mode, then quarantine the feature
-        -- for the rest of the match instead of risking a crash.
-        if W.Errors>=40 and not W.SafeMode then W.SafeMode=true;W.LastTick=-999 end
+        -- Thode der ke liye tick roko (crash window se bachne ke liye), lekin
+        -- WallEnabled=true rakho taak menu button OFF na ho.
+        W.PausedTill=W.LastTick+1.0
+        if W.Errors>=40 and not W.SafeMode then
+            W.SafeMode=true;W.LastTick=-999
+        end
         if W.Errors>=140 and not W.Quarantine then
             W.Quarantine=true
-            F.Settings.WallEnabled=false
-            _G.LunarWallNotice="Wall Hack auto-paused after native errors. Turn it on again from the menu."
+            -- F.Settings.WallEnabled=false   -- REMOVED: button khud band na ho
+            _G.LunarWallNotice="Wall Hack native error. Safe mode ON, tick paused 2s. Toggle Wall Hack again."
             if F.MarkDirty then F.MarkDirty(true) end
             pcall(W.Stop)
         end
@@ -6323,6 +6325,8 @@ do
         me=me or g_vipserver_ESPGetLocalCharacter()
         pc=pc or g_vipserver_ESPGetController()
         if not valid(me) or not valid(pc) then W.Stop() return end
+        -- Error pause: native calls fail rahe hain, 2s tak tick mat chalao.
+        if W.PausedTill and now<W.PausedTill then return end
         -- Death cam / spectator swap: meshes are being replaced here, so keep
         -- hands off until the next spawn instead of poking stale components.
         local okAlive,alive=pcall(function() return me.IsAlive and me:IsAlive() end)
@@ -6337,7 +6341,6 @@ do
         W.LastTick=now
         local world=g_vipserver_ESPWorld()
         if world~=W.ConsoleWorld then
-            W.Errors=0
             local ok=pcall(function()
                 if not world or not UKismetSystemLibrary.ExecuteConsoleCommand then return end
                 for _,command in ipairs({"r.EnableDrawDyeingColor 1","r.CustomDepth 3","r.IdeaOutline.Enable 1","r.Highlight.Enable 1"}) do
