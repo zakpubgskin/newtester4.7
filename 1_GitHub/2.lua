@@ -1618,7 +1618,7 @@ end
 -- Feature rows, option values and authentication stay owned by this script.
 local g_vipserver_EnsureHackMenu
 do
-    local VERSION = "LunarSettings.V9.12.AimNested"
+    local VERSION = "LunarSettings.V9.13.AimClean"
     local function runtime()
         local state = _G.LunarNativeSettingsRuntime
         if type(state) ~= "table" then state = {}; _G.LunarNativeSettingsRuntime = state end
@@ -1807,9 +1807,7 @@ do
             function() return featureState().Settings.IpadFOV end,"SetIpadFOV"))
     end
     -- V9.7: Aimbot ka apna alag section (AIMBOT tab). Rows flat hain taaki
-    -- V9.12: Nested AIMBOT section. Master ON karne par neeche options ayengi.
-    -- Har sub-section (sniper/shotgun) ka apna expand hone wala block hai
-    -- jisme uske apne FOV/speed/dist/vis/knock/target hain.
+    -- Clean AIMBOT section. Master ON par neeche options ayengi.
     local Aim={}
     -- --- Aimbot V1 Master (expandable parent) ---
     Aim[#Aim+1]={Key="LunarAim",UI=AliasMap.Switcher,Text="Aimbot V1 (Master - aim on/off)",
@@ -1845,78 +1843,17 @@ do
         GetFunc=function() return featureState().Settings.AimIgBot end,
         SetFunc=function(c,v) featureState().SetAimIgBot(value(c,v));return true end}
 
-    -- --- Sniper Scope Aim (expandable parent) ---
+    -- --- Sniper Scope Aim (toggle, head lock, no fire) ---
     Aim[#Aim+1]={Key="LunarAimSniper",UI=AliasMap.Switcher,Text="Sniper Scope Aim (head lock, no fire)",
-        ExpandIndex=0,
         GetFunc=function() return featureState().Settings.AimSniperScope end,
         SetFunc=function(c,v) featureState().SetAimSniperScope(value(c,v));return true end}
-    if sliderReady then
-        Aim[#Aim+1]=rangeItem("LunarSniperFOV","Sniper FOV",10,100,"LunarAimSniper",
-            function() return featureState().Settings.SniperFOV end,
-            function(v) return featureState().SetAimManual("SniperFOV",v) end)
-    end
-    if sliderReady then
-        Aim[#Aim+1]=rangeItem("LunarSniperSpeed","Sniper Speed",100,120,"LunarAimSniper",
-            function() return featureState().Settings.SniperSpeed end,
-            function(v) return featureState().SetAimManual("SniperSpeed",v) end)
-    end
-    if sliderReady then
-        Aim[#Aim+1]=rangeItem("LunarSniperDist","Sniper Distance (meter)",50,400,"LunarAimSniper",
-            function() return featureState().Settings.SniperDist end,
-            function(v) return featureState().SetAimManual("SniperDist",v) end)
-    end
-    Aim[#Aim+1]={Key="LunarSniperVis",UI=AliasMap.Switcher,Text="Visible Only",
-        ExpandHandle="LunarAimSniper",
-        GetFunc=function() return featureState().Settings.AimVisCheck end,
-        SetFunc=function(c,v) featureState().SetAimVisCheck(value(c,v));return true end}
-    Aim[#Aim+1]={Key="LunarSniperKnock",UI=AliasMap.Switcher,Text="Ignore Knocked",
-        ExpandHandle="LunarAimSniper",
-        GetFunc=function() return featureState().Settings.AimIgKnock end,
-        SetFunc=function(c,v) featureState().SetAimIgKnock(value(c,v));return true end}
-    Aim[#Aim+1]={Key="LunarSniperTarget",UI=AliasMap.Switcher,Text="Target (Head/Body/Leg)",
-        ExpandHandle="LunarAimSniper",SwitcherText={"Head","Body","Leg"},SwitcherValue={1,2,3},
-        GetFunc=function() return featureState().Settings.AimTarget end,
-        SetFunc=function(c,v) featureState().SetAimTarget(value(c,v));return true end}
 
-    -- --- Shotgun Aim (expandable parent) ---
+    -- --- Shotgun Aim (toggle, hipfire, no scope) ---
     Aim[#Aim+1]={Key="LunarAimShotgun",UI=AliasMap.Switcher,Text="Shotgun Aim (hipfire, no scope)",
-        ExpandIndex=0,
         GetFunc=function() return featureState().Settings.AimShotgun end,
         SetFunc=function(c,v) featureState().SetAimShotgun(value(c,v));return true end}
-    if sliderReady then
-        Aim[#Aim+1]=rangeItem("LunarSgFOV","Shotgun FOV",10,100,"LunarAimShotgun",
-            function() return featureState().Settings.SgFOV end,
-            function(v) return featureState().SetAimManual("SgFOV",v) end)
-    end
-    if sliderReady then
-        Aim[#Aim+1]=rangeItem("LunarSgSpeed","Shotgun Speed",100,120,"LunarAimShotgun",
-            function() return featureState().Settings.SgSpeed end,
-            function(v) return featureState().SetAimManual("SgSpeed",v) end)
-    end
-    if sliderReady then
-        Aim[#Aim+1]=rangeItem("LunarSgDist","Shotgun Distance (meter)",10,200,"LunarAimShotgun",
-            function() return featureState().Settings.SgDist end,
-            function(v) return featureState().SetAimManual("SgDist",v) end)
-    end
-    Aim[#Aim+1]={Key="LunarSgVis",UI=AliasMap.Switcher,Text="Visible Only",
-        ExpandHandle="LunarAimShotgun",
-        GetFunc=function() return featureState().Settings.AimVisCheck end,
-        SetFunc=function(c,v) featureState().SetAimVisCheck(value(c,v));return true end}
-    Aim[#Aim+1]={Key="LunarSgKnock",UI=AliasMap.Switcher,Text="Ignore Knocked",
-        ExpandHandle="LunarAimShotgun",
-        GetFunc=function() return featureState().Settings.AimIgKnock end,
-        SetFunc=function(c,v) featureState().SetAimIgKnock(value(c,v));return true end}
-    Aim[#Aim+1]={Key="LunarSgTarget",UI=AliasMap.Switcher,Text="Target (Head/Body/Leg)",
-        ExpandHandle="LunarAimShotgun",SwitcherText={"Head","Body","Leg"},SwitcherValue={1,2,3},
-        GetFunc=function() return featureState().Settings.AimTarget end,
-        SetFunc=function(c,v) featureState().SetAimTarget(value(c,v));return true end}
 
-    -- --- ADS only (standalone toggle) ---
-    Aim[#Aim+1]={Key="LunarAimAdsOnly",UI=AliasMap.Switcher,Text="ADS Only (hipfire aim band)",
-        GetFunc=function() return featureState().Settings.AimOnlyADS end,
-        SetFunc=function(c,v) featureState().SetAimOnlyADS(value(c,v));return true end}
-
-    -- --- Kick Control (expandable parent) ---
+    -- --- Kick Control (recoil remove) ---
     Aim[#Aim+1]={Key="LunarKick",UI=AliasMap.Switcher,Text="Kick Control (recoil remove)",
         ExpandIndex=0,EventType=F.AimSettingsEventType,EventID=F.AimSettingsEventID,
         GetFunc=function() return featureState().Settings.KickControl end,
@@ -1924,25 +1861,6 @@ do
     if sliderReady then
         Aim[#Aim+1]=rangeItem("LunarKickAmt","Kick Amount (0=off, 100=max)",0,100,"LunarKick",
             function() return featureState().Settings.KickAmount end,"SetKickAmount")
-    end
-
-    -- --- Manual Scope (expandable parent) ---
-    Aim[#Aim+1]={Key="LunarAimManual",UI=AliasMap.Switcher,Text="Manual Scope (per-weapon FOV/speed/dist)",
-        ExpandIndex=0,EventType=F.AimSettingsEventType,EventID=F.AimSettingsEventID,
-        GetFunc=function() return featureState().Settings.ScopeManual end,
-        SetFunc=function(c,v) featureState().SetAimManualMode(value(c,v));return true end}
-    if sliderReady then
-        local function manual(menuKey,settingKey,label,lo,hi)
-            return rangeItem(menuKey,label,lo,hi,"LunarAimManual",
-                function() return featureState().Settings[settingKey] end,
-                function(v) return featureState().SetAimManual(settingKey,v) end)
-        end
-        Aim[#Aim+1]=manual("LunarHipFOV","HipFOV","Hipfire FOV",10,100)
-        Aim[#Aim+1]=manual("LunarHipSpeed","Hipfire Speed",100,120)
-        Aim[#Aim+1]=manual("LunarHipDist","Hipfire Distance (meter)",50,400)
-        Aim[#Aim+1]=manual("LunarAdsFOV","AdsFOV","ADS FOV",10,100)
-        Aim[#Aim+1]=manual("LunarAdsSpeed","AdsSpeed","ADS Speed",100,120)
-        Aim[#Aim+1]=manual("LunarAdsDist","AdsDist","ADS Distance (meter)",50,400)
     end
     Other[#Other+1]={Key="LunarEspMaster",UI=AliasMap.Switcher,Text="ESP Master (enemy esp on/off)",ExpandIndex=0,
         GetFunc=function() return _G.g_vipserver_VIPShotESP.Enabled==true end,
@@ -2116,7 +2034,7 @@ do
         state.Ready = state.Registered and state.HookInstalled == true
         if state.Ready then
             state.LastError = nil
-            _G.HackMenuInitialized = "VIP_SERVER_NATIVE_SETTINGS_V9_12"
+            _G.HackMenuInitialized = "VIP_SERVER_NATIVE_SETTINGS_V9_13"
         else state.LastError = "SETTINGS_UI_MANAGER_NOT_READY" end
         return state.Ready
     end
@@ -5025,23 +4943,8 @@ do
     -- V9.3 additions: fine-grained Aimbot V1 and ESP controls.
     settings.AimFOV=number(settings.AimFOV,10,100,30)
     settings.AimDist=number(settings.AimDist,50,400,120)
-    -- V9.9: manual per-scope tuning + ADS-only + kick (recoil) control.
-    settings.ScopeManual=settings.ScopeManual==true
-    settings.AimOnlyADS=settings.AimOnlyADS==true
     settings.KickControl=settings.KickControl==true
     settings.KickAmount=number(settings.KickAmount,0,100,100)
-    settings.HipFOV=number(settings.HipFOV,10,100,settings.AimFOV)
-    settings.HipSpeed=number(settings.HipSpeed,100,120,settings.AimSpeed)
-    settings.HipDist=number(settings.HipDist,50,400,settings.AimDist)
-    settings.AdsFOV=number(settings.AdsFOV,10,100,settings.AimFOV)
-    settings.AdsSpeed=number(settings.AdsSpeed,100,120,settings.AimSpeed)
-    settings.AdsDist=number(settings.AdsDist,50,400,settings.AimDist)
-    settings.SniperFOV=number(settings.SniperFOV,10,100,settings.AimFOV)
-    settings.SniperSpeed=number(settings.SniperSpeed,100,120,settings.AimSpeed)
-    settings.SniperDist=number(settings.SniperDist,50,400,settings.AimDist)
-    settings.SgFOV=number(settings.SgFOV,10,100,math.max(40,settings.AimFOV))
-    settings.SgSpeed=number(settings.SgSpeed,100,120,settings.AimSpeed)
-    settings.SgDist=number(settings.SgDist,10,200,30)
     settings.AimVisCheck=settings.AimVisCheck~=false
     settings.AimIgKnock=settings.AimIgKnock~=false
     settings.AimIgBot=settings.AimIgBot==true
@@ -5086,23 +4989,6 @@ do
                             settings[key]=number(val,lo,hi,settings[key])
                         end
                     end
-                    -- V9.9: manual per-scope tuning values.
-                    for _,key in ipairs({"HipFOV","AdsFOV","SniperFOV","SgFOV"}) do
-                        local val=payload:match("%f[%w_]"..key.."%s*=%s*([%d%.%-]+)")
-                        if val then settings[key]=number(val,10,100,settings[key]) end
-                    end
-                    for _,key in ipairs({"HipSpeed","AdsSpeed","SniperSpeed","SgSpeed"}) do
-                        local val=payload:match("%f[%w_]"..key.."%s*=%s*([%d%.%-]+)")
-                        if val then settings[key]=number(val,100,120,settings[key]) end
-                    end
-                    for _,key in ipairs({"HipDist","AdsDist","SniperDist"}) do
-                        local val=payload:match("%f[%w_]"..key.."%s*=%s*([%d%.%-]+)")
-                        if val then settings[key]=number(val,50,400,settings[key]) end
-                    end
-                    for _,key in ipairs({"SgDist"}) do
-                        local val=payload:match("%f[%w_]"..key.."%s*=%s*([%d%.%-]+)")
-                        if val then settings[key]=number(val,10,200,settings[key]) end
-                    end
                     for _,key in ipairs({"KickAmount"}) do
                         local val=payload:match("%f[%w_]"..key.."%s*=%s*([%d%.%-]+)")
                         if val then settings[key]=number(val,0,100,settings[key]) end
@@ -5111,7 +4997,7 @@ do
                         local val=payload:match("%f[%w_]"..key.."%s*=%s*(%a+)")
                         if val=="true" or val=="false" then settings[key]=val=="true" end
                     end
-                    for _,key in ipairs({"AimSniperScope","AimShotgun","WallSafeMode","SkinSafeMode","ScopeManual","AimOnlyADS","KickControl"}) do
+                    for _,key in ipairs({"AimSniperScope","AimShotgun","WallSafeMode","SkinSafeMode","KickControl"}) do
                         local val=payload:match("%f[%w_]"..key.."%s*=%s*(%a+)")
                         if val=="true" or val=="false" then settings[key]=val=="true" end
                     end
@@ -5148,8 +5034,8 @@ do
     F.Save=function(force)
         if not F.Dirty or not io or not io.open then return end
         local lines={"return {", "  IpadEnabled = "..tostring(_G.MWConfig.IpadView==true)..","}
-        for _,key in ipairs({"AimEnabled","WallEnabled","Aim2Enabled","MortarEnabled","IpadFOV","AimSpeed","AimTarget","WallVisible","WallOccluded","AimFOV","AimDist","EspRange","EspMaxTargets","KickAmount","HipFOV","HipSpeed","HipDist","AdsFOV","AdsSpeed","AdsDist","SniperFOV","SniperSpeed","SniperDist","SgFOV","SgSpeed","SgDist"}) do lines[#lines+1]="  "..key.." = "..tostring(settings[key]).."," end
-        for _,key in ipairs({"AimVisCheck","AimIgKnock","AimIgBot","AimSniperScope","AimShotgun","WallSafeMode","SkinSafeMode","ScopeManual","AimOnlyADS","KickControl"}) do lines[#lines+1]="  "..key.." = "..tostring(settings[key]==true).."," end
+        for _,key in ipairs({"AimEnabled","WallEnabled","Aim2Enabled","MortarEnabled","IpadFOV","AimSpeed","AimTarget","WallVisible","WallOccluded","AimFOV","AimDist","EspRange","EspMaxTargets","KickAmount"}) do lines[#lines+1]="  "..key.." = "..tostring(settings[key]).."," end
+        for _,key in ipairs({"AimVisCheck","AimIgKnock","AimIgBot","AimSniperScope","AimShotgun","WallSafeMode","SkinSafeMode","KickControl"}) do lines[#lines+1]="  "..key.." = "..tostring(settings[key]==true).."," end
         for _,key in ipairs({"Name","Line","Health","Distance","EnemyCounter"}) do lines[#lines+1]="  V1_"..key.." = "..tostring(_G.g_Botmater_ESPOptions[key]==true).."," end
         for _,key in ipairs({"Name","Line","Box","Health","Distance","Skeleton","Counter"}) do lines[#lines+1]="  V2_"..key.." = "..tostring(_G.g_vipserver_ESPOptions[key]==true).."," end
         lines[#lines+1]="}"
@@ -5181,72 +5067,6 @@ do
     end
     -- V9.9: ek hi jagah se saare aim knobs likhte hain. Manual ON ho to
     -- per-mode (hip/ADS/sniper/shotgun) values, warna global Aim FOV/Speed/Dist.
-    F.ApplyAimManual=function()
-        local data=_G.XthrlenState and _G.XthrlenState.CustomTextData
-        if not data then return false end
-        if settings.ScopeManual then
-            data.AimTouchHipFOV=settings.HipFOV
-            data.AimTouchHipSpeed=settings.HipSpeed
-            data.AimTouchHipDist=settings.HipDist
-            data.AimTouchScopeFOV=settings.AdsFOV
-            data.AimTouchScopeSpeed=settings.AdsSpeed
-            data.AimTouchScopeDist=settings.AdsDist
-            data.AimTouchSniperFOV=settings.SniperFOV
-            data.AimTouchSniperSpeed=settings.SniperSpeed
-            data.AimTouchSniperDist=settings.SniperDist
-            data.AimTouchSGFOV=settings.SgFOV
-            data.AimTouchSGSpeed=settings.SgSpeed
-            data.AimTouchSGDist=settings.SgDist
-        else
-            data.AimTouchHipFOV=settings.AimFOV
-            data.AimTouchHipSpeed=settings.AimSpeed
-            data.AimTouchHipDist=settings.AimDist
-            data.AimTouchScopeFOV=settings.AimFOV
-            data.AimTouchScopeSpeed=settings.AimSpeed
-            data.AimTouchScopeDist=settings.AimDist
-            data.AimTouchSniperFOV=settings.AimFOV
-            data.AimTouchSniperSpeed=settings.AimSpeed
-            data.AimTouchSniperDist=settings.AimDist
-            data.AimTouchSGFOV=math.max(40,settings.AimFOV)
-            data.AimTouchSGSpeed=settings.AimSpeed
-            data.AimTouchSGDist=30
-        end
-        F.AimLastClock=nil;F.AimDue=0
-        if _G.XthrlenState then _G.XthrlenState.offPitch=0;_G.XthrlenState.offYaw=0 end
-        return true
-    end
-    -- Manual sliders: value likhte hi manual mode khud ON ho jata hai, taaki
-    -- slider move karne par asar turant dikhe.
-    local manualRanges={
-        HipFOV={10,100},AdsFOV={10,100},SniperFOV={10,100},SgFOV={10,100},
-        HipSpeed={100,120},AdsSpeed={100,120},SniperSpeed={100,120},SgSpeed={100,120},
-        HipDist={50,400},AdsDist={50,400},SniperDist={50,400},SgDist={10,200}}
-    F.SetAimManual=function(key,value)
-        local range=manualRanges[key]
-        if not range then return false end
-        settings[key]=number(value,range[1],range[2],settings[key])
-        settings.ScopeManual=true
-        F.ApplyAimManual()
-        F.MarkDirty(true)
-        if F.Wake then F.Wake() end
-        return true
-    end
-    F.SetAimManualMode=function(enabled)
-        settings.ScopeManual=(enabled==true or enabled==1)
-        F.ApplyAimManual()
-        F.MarkDirty(true)
-        if F.Wake then F.Wake() end
-        return true
-    end
-    -- ADS only: hipfire aim poori tarah band (AimTouchHipfire gate).
-    F.SetAimOnlyADS=function(enabled)
-        settings.AimOnlyADS=(enabled==true or enabled==1)
-        if _G.XthrlenConfig then _G.XthrlenConfig.AimTouchHipfire=not settings.AimOnlyADS end
-        F.AimLastClock=nil;F.AimDue=0
-        F.MarkDirty(true)
-        if F.Wake then F.Wake() end
-        return true
-    end
     -- Kick control: weapon ke shoot component par recoil fields ko dabata hai.
     F.SetKickControl=function(enabled)
         settings.KickControl=(enabled==true or enabled==1)
@@ -5267,9 +5087,6 @@ do
             F.AimLastClock=nil;F.AimDue=0
             if _G.XthrlenState then _G.XthrlenState.offPitch=0;_G.XthrlenState.offYaw=0 end
         end
-        if _G.XthrlenState and _G.XthrlenState.CustomTextData then
-            F.ApplyAimManual()
-        end
         F.MarkDirty()
     end
     F.SetAimTarget=function(value) settings.AimTarget=number(value,1,3,1);F.MarkDirty(true) end
@@ -5284,13 +5101,11 @@ do
     end
     F.SetAimFOV=function(value)
         settings.AimFOV=number(value,10,100,30)
-        F.ApplyAimManual()
         F.AimLastClock=nil;F.AimDue=0
         F.MarkDirty(true)
     end
     F.SetAimDist=function(value)
         settings.AimDist=number(value,50,400,120)
-        F.ApplyAimManual()
         F.AimLastClock=nil;F.AimDue=0
         F.MarkDirty(true)
     end
@@ -5353,7 +5168,6 @@ do
             -- cond 2 = aim allowed without firing; keep the scope on the head.
             data.AimTouchSniperCond=2
         end
-        F.ApplyAimManual()
         F.AimLastClock=nil;F.AimDue=0
         F.MarkDirty(true)
         if F.Wake then F.Wake() end
@@ -5366,7 +5180,6 @@ do
         if data then
             data.AimTouchSGCond=2
         end
-        F.ApplyAimManual()
         F.AimLastClock=nil;F.AimDue=0
         F.MarkDirty(true)
         if F.Wake then F.Wake() end
@@ -5573,7 +5386,7 @@ _G.XthrlenState = _G.XthrlenState or {}
 _G.XthrlenState.CustomTextData = _G.XthrlenState.CustomTextData or {}
 
 _G.XthrlenConfig.AimTouchEnable        = _G.LunarFeatures.Settings.AimEnabled
-_G.XthrlenConfig.AimTouchHipfire       = not _G.LunarFeatures.Settings.AimOnlyADS
+_G.XthrlenConfig.AimTouchHipfire       = true
 _G.XthrlenConfig.AimTouchScopeAll      = true
 _G.XthrlenConfig.AimTouchHipVisCheck   = _G.LunarFeatures.Settings.AimVisCheck
 _G.XthrlenConfig.AimTouchScopeVisCheck = _G.LunarFeatures.Settings.AimVisCheck
@@ -5617,7 +5430,6 @@ _G.XthrlenState.CustomTextData.AimTouchSGFOV    = math.max(40,_G.LunarFeatures.S
 _G.XthrlenState.CustomTextData.AimTouchSGDist   = 30
 
 -- V9.9: saved manual scope values (ya global defaults) apply karo.
-if type(_G.LunarFeatures.ApplyAimManual)=="function" then pcall(_G.LunarFeatures.ApplyAimManual) end
 
 _G.XthrlenState.offPitch = _G.XthrlenState.offPitch or 0
 _G.XthrlenState.offYaw   = _G.XthrlenState.offYaw   or 0
@@ -5749,7 +5561,6 @@ _G.AimTouch = function()
         if type(diag)~="table" then diag={}; _G.LunarAimDiag=diag end
         diag.Shotgun=isShotgun; diag.Sniper=isSniper; diag.ADS=isADS==true; diag.Firing=isFiring==true
         diag.SniperIdle=sniperIdle==true; diag.ShotgunIdle=shotgunIdle==true
-        diag.Manual=aimSettings.ScopeManual==true; diag.ADSOnly=aimSettings.AimOnlyADS==true
         diag.Kick=aimSettings.KickControl==true; diag.KickAmount=tonumber(aimSettings.KickAmount)
         pcall(function()
             if slua.isValid(weapon) and type(weapon.GetWeaponName)=="function" then diag.Weapon=weapon:GetWeaponName() end
@@ -5830,7 +5641,6 @@ _G.AimTouch = function()
                 return
             end
         else
-            if not _G.XthrlenConfig.AimTouchHipfire then return end
             cond = _G.XthrlenState.CustomTextData.AimTouchHipCond or 1
             if cond == 1 and not isFiring then return end 
             prioMode = _G.XthrlenState.CustomTextData.AimTouchHipPrio or 1
