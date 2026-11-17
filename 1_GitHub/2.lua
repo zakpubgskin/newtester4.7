@@ -13,6 +13,8 @@ _G.MWConfig = _G.MWConfig or {
     SkinDeadBox    = false,   -- Dead box skin
     SkinAttachment = false,   -- Weapon attachment skins
     KillMessage    = false,   -- Kill message skin
+    GrenadeWarning = false,   -- V9.13: Grenade detection
+    NoSmoke        = false,   -- No Smoke (hide smoke effects)
     KillCountUI    = false,   -- Kill counter UI
     ModEmote       = false,   -- Extra emotes
 
@@ -35,7 +37,6 @@ _G.MWConfig = _G.MWConfig or {
     SpeedRunV2     = false,
     FastCar        = false,
     VehicleInstantStop = false,
-    NoSmoke        = false,   -- No Smoke (hide smoke effects)
 }
 
 -- V9.8: Skin anti-ban gate. ON (default) = skins sirf client par dikhti hain:
@@ -1783,7 +1784,10 @@ do
     end
     local V2={espAll(2),
         espSwitch(2,"Name","ESP Name"),espSwitch(2,"Line","ESP Line"),espSwitch(2,"Box","ESP Box (2D box)"),
-        espSwitch(2,"Health","ESP Health"),espSwitch(2,"Distance","ESP Distance"),espSwitch(2,"Skeleton","ESP Skeleton"),espSwitch(2,"Counter","ESP Counter")}
+        espSwitch(2,"Health","ESP Health"),espSwitch(2,"Distance","ESP Distance"),espSwitch(2,"Skeleton","ESP Skeleton"),espSwitch(2,"Counter","ESP Counter"),
+        {Key="LunarGrenade",UI=AliasMap.Switcher,Text="Grenade Warning",
+            GetFunc=function() return featureState().Settings.GrenadeWarning end,
+            SetFunc=function(c,v) featureState().Settings.GrenadeWarning=(value(c,v)==true or value(c,v)==1); featureState().MarkDirty(true); return true end}}
     local Other={
         {Key="LunarWall",UI=AliasMap.Switcher,Text="Wall Hack (see through walls)",ExpandIndex=0,EventType=F.ESPSettingsEventType,EventID=3,GetFunc=function() return featureState().Settings.WallEnabled end,
             SetFunc=function(c,v) featureState().SetWall(value(c,v));return true end},
@@ -1899,11 +1903,7 @@ do
             _G.MWConfig.ModSkin = (v == true or v == 1)
             if _G.MWConfig.ModSkin then
                 startSkinModule()
-                -- V9.14: Defer injectAll to avoid 5-second hang on master ON
-                -- Lang player base na ho to 1 tick baad inject karein
-                if _G.AddOutfit and type(F.later) == "function" then
-                    pcall(function() F.later(0.3, function() pcall(_G.AddOutfit.injectAll) end) end)
-                elseif _G.AddOutfit then
+                if _G.AddOutfit then
                     pcall(_G.AddOutfit.injectAll)
                 end
             end
@@ -4755,6 +4755,43 @@ local function g_vipserver_ESPUpdate()
         g_vipserver_ESPHide(g_vipserver_ShotESP.Counter)
     end
 
+    -- V9.13: Grenade detection - show warning if enemies have grenades nearby
+    local grenadeWarning = false
+    if featureState().Settings.GrenadeWarning then
+        for _, enemy in pairs(g_vipserver_ShotESP.Enemies or {}) do
+            local character = enemy.Character
+            if character then
+                local className = ""
+                pcall(function() className = character:GetClass() end)
+                if className and className:lower():find("grenade") then
+                    grenadeWarning = true
+                    break
+                end
+            end
+        end
+        if grenadeWarning then
+            -- Show simple text warning at top-center
+            local rawW, rawH = ESPShared.ViewSize(pc)
+            local cx, cy = rawW * 0.5, rawH * 0.1
+            pcall(function() g_vipserver_ShotESP.GrenadeWidget:SetText("⚠ GRENADE NEAR!") end)
+            pcall(function() g_vipserver_ShotESP.GrenadeWidget:SetWidgetVisibility(UEnums.ESlateVisibility.Visible) end)
+        else
+            pcall(function() g_vipserver_ShotESP.GrenadeWidget:SetWidgetVisibility(UEnums.ESlateVisibility.Collapsed) end)
+        end
+    end
+
+    -- V9.13: No Smoke - hide all smoke effects
+    if featureState().Settings.NoSmoke then
+        -- Clear smoke widgets
+        if g_vipserver_ShotESP.SmokeWidgets then
+            for key, widget in pairs(g_vipserver_ShotESP.SmokeWidgets) do
+                pcall(function() widget.Widget:SetWidgetVisibility(UEnums.ESlateVisibility.Collapsed) end)
+            end
+            g_vipserver_ShotESP.SmokeWidgets = {}
+        end
+        g_vipserver_ShotESP.NeedSmokePurge = true
+    end
+
     -- Counter-only mode stops here after validating cached scan candidates, avoiding
     -- projection, skeleton, box and per-enemy widget work entirely.
     local detailedEnabled=opt.Name or opt.Line or opt.Box or opt.Health or opt.Distance or opt.Skeleton
@@ -5006,7 +5043,7 @@ do
                         local val=payload:match("%f[%w_]"..key.."%s*=%s*(%a+)")
                         if val=="true" or val=="false" then settings[key]=val=="true" end
                     end
-                    for _,key in ipairs({"AimSniperScope","AimShotgun","WallSafeMode","SkinSafeMode","KickControl"}) do
+                    for _,key in ipairs({"AimSniperScope","AimShotgun","WallSafeMode","SkinSafeMode","KickControl","GrenadeWarning"}) do
                         local val=payload:match("%f[%w_]"..key.."%s*=%s*(%a+)")
                         if val=="true" or val=="false" then settings[key]=val=="true" end
                     end
@@ -5014,7 +5051,7 @@ do
                         local val=payload:match("%f[%w_]V1_"..key.."%s*=%s*(%a+)")
                         if val=="true" or val=="false" then _G.g_Botmater_ESPOptions[key]=val=="true" end
                     end
-                    for _,key in ipairs({"Name","Line","Box","Health","Distance","Skeleton","Counter"}) do
+                    for _,key in ipairs({"Name","Line","Box","Health","Distance","Skeleton","Counter","GrenadeWarning"}) do
                         local val=payload:match("%f[%w_]V2_"..key.."%s*=%s*(%a+)")
                         if val=="true" or val=="false" then _G.g_vipserver_ESPOptions[key]=val=="true" end
                     end
