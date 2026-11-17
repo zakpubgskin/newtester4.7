@@ -9,6 +9,7 @@ local UKismetSystemLibrary=import("KismetSystemLibrary")
 _G.MWConfig = _G.MWConfig or {
     -- Skin features
     ModSkin        = false,   -- Master skin toggle
+    SkinSafeMode   = true,    -- V9.8: client-only skin mode (anti-ban)
     SkinDeadBox    = false,   -- Dead box skin
     SkinAttachment = false,   -- Weapon attachment skins
     KillMessage    = false,   -- Kill message skin
@@ -36,6 +37,15 @@ _G.MWConfig = _G.MWConfig or {
     VehicleInstantStop = false,
 }
 
+-- V9.8: Skin anti-ban gate. ON (default) = skins sirf client par dikhti hain:
+-- koi bhi wear-cache / depot show / head-show server write nahi hoti. OFF =
+-- purana poora behaviour (server-synced writes bhi).
+_G.LunarSkinSafe = function()
+    local owner = _G.LunarFeatures
+    local s = owner and owner.Settings
+    if s and s.SkinSafeMode ~= nil then return s.SkinSafeMode ~= false end
+    return not (_G.MWConfig and _G.MWConfig.SkinSafeMode == false)
+end
 _G.g_vipserver=_G.g_vipserver or "VIP Server"
 local g_vipserver_credit=_G.g_vipserver
 local g_vipserver_StartSettingsMaintenance
@@ -1608,7 +1618,7 @@ end
 -- Feature rows, option values and authentication stay owned by this script.
 local g_vipserver_EnsureHackMenu
 do
-    local VERSION = "LunarSettings.V9.6.MenuFix"
+    local VERSION = "LunarSettings.V9.8.SkinSafe"
     local function runtime()
         local state = _G.LunarNativeSettingsRuntime
         if type(state) ~= "table" then state = {}; _G.LunarNativeSettingsRuntime = state end
@@ -1778,11 +1788,7 @@ do
             SetFunc=function(c,v) featureState().SetWall(value(c,v));return true end},
         {Key="LunarIpad",UI=AliasMap.Switcher,Text="iPad View",ExpandIndex=0,GetFunc=function() return _G.MWConfig.IpadView end,
             SetFunc=function(c,v) featureState().SetIpad(value(c,v));return true end},
-            
-        {Key="LunarAim",UI=AliasMap.Switcher,Text="Aimbot V1",ExpandIndex=0,
-            EventType=F.AimSettingsEventType,EventID=F.AimSettingsEventID,
-            GetFunc=function() return featureState().Settings.AimEnabled end,
-            SetFunc=function(c,v) featureState().SetAim(value(c,v));return true end}
+            -- V9.7: Aimbot rows moved to their own AIMBOT section below.
     }
     -- Verified native settings item contract: absolute Min/Max values, native
     -- key/value callbacks, and expansion events owned by the game's page.
@@ -1799,39 +1805,44 @@ do
         table.insert(Other,3,rangeItem("LunarIpadFOV","iPad FOV",90,120,"LunarIpad",
             function() return featureState().Settings.IpadFOV end,"SetIpadFOV"))
     end
+    -- V9.7: Aimbot ka apna alag section (AIMBOT tab). Rows flat hain taaki
+    -- sab options bina expand kiye seedha dikhein.
+    local Aim={}
+    Aim[#Aim+1]={Key="LunarAim",UI=AliasMap.Switcher,Text="Aimbot V1 (master)",
+        EventType=F.AimSettingsEventType,EventID=F.AimSettingsEventID,
+        GetFunc=function() return featureState().Settings.AimEnabled end,
+        SetFunc=function(c,v) featureState().SetAim(value(c,v));return true end}
+    Aim[#Aim+1]={Key="LunarAimSniper",UI=AliasMap.Switcher,Text="Sniper scope aim",
+        GetFunc=function() return featureState().Settings.AimSniperScope end,
+        SetFunc=function(c,v) featureState().SetAimSniperScope(value(c,v));return true end}
+    Aim[#Aim+1]={Key="LunarAimShotgun",UI=AliasMap.Switcher,Text="Shotgun aim (no scope)",
+        GetFunc=function() return featureState().Settings.AimShotgun end,
+        SetFunc=function(c,v) featureState().SetAimShotgun(value(c,v));return true end}
     if sliderReady then
-        Other[#Other+1]=rangeItem("LunarAimSpeed","Aim speed",100,120,"LunarAim",
+        Aim[#Aim+1]=rangeItem("LunarAimSpeed","Aim speed",100,120,nil,
             function() return featureState().Settings.AimSpeed end,"SetAimSpeed")
     end
-    Other[#Other+1]={Key="LunarAimTarget",UI=AliasMap.Switcher,Text="Aim target",ExpandHandle="LunarAim",
+    Aim[#Aim+1]={Key="LunarAimTarget",UI=AliasMap.Switcher,Text="Aim target",
         SwitcherText={"Head","Body","Leg"},SwitcherValue={1,2,3},
         GetFunc=function() return featureState().Settings.AimTarget end,
         SetFunc=function(c,v) featureState().SetAimTarget(value(c,v));return true end}
-    -- V9.3: Aimbot V1 tuning rows (nested under the Aimbot V1 switch).
     if sliderReady then
-        Other[#Other+1]=rangeItem("LunarAimFOV","Aim FOV",10,100,"LunarAim",
+        Aim[#Aim+1]=rangeItem("LunarAimFOV","Aim FOV",10,100,nil,
             function() return featureState().Settings.AimFOV end,"SetAimFOV")
     end
     if sliderReady then
-        Other[#Other+1]=rangeItem("LunarAimDist","Aim distance",50,400,"LunarAim",
+        Aim[#Aim+1]=rangeItem("LunarAimDist","Aim distance",50,400,nil,
             function() return featureState().Settings.AimDist end,"SetAimDist")
     end
-    Other[#Other+1]={Key="LunarAimVis",UI=AliasMap.Switcher,Text="Visible only",ExpandHandle="LunarAim",
+    Aim[#Aim+1]={Key="LunarAimVis",UI=AliasMap.Switcher,Text="Visible only",
         GetFunc=function() return featureState().Settings.AimVisCheck end,
         SetFunc=function(c,v) featureState().SetAimVisCheck(value(c,v));return true end}
-    Other[#Other+1]={Key="LunarAimKnock",UI=AliasMap.Switcher,Text="Ignore knocked",ExpandHandle="LunarAim",
+    Aim[#Aim+1]={Key="LunarAimKnock",UI=AliasMap.Switcher,Text="Ignore knocked",
         GetFunc=function() return featureState().Settings.AimIgKnock end,
         SetFunc=function(c,v) featureState().SetAimIgKnock(value(c,v));return true end}
-    Other[#Other+1]={Key="LunarAimBot",UI=AliasMap.Switcher,Text="Ignore bots",ExpandHandle="LunarAim",
+    Aim[#Aim+1]={Key="LunarAimBot",UI=AliasMap.Switcher,Text="Ignore bots",
         GetFunc=function() return featureState().Settings.AimIgBot end,
         SetFunc=function(c,v) featureState().SetAimIgBot(value(c,v));return true end}
-    -- V9.4: idle aim modes (work without firing).
-    Other[#Other+1]={Key="LunarAimSniper",UI=AliasMap.Switcher,Text="Sniper scope aim",ExpandHandle="LunarAim",
-        GetFunc=function() return featureState().Settings.AimSniperScope end,
-        SetFunc=function(c,v) featureState().SetAimSniperScope(value(c,v));return true end}
-    Other[#Other+1]={Key="LunarAimShotgun",UI=AliasMap.Switcher,Text="Shotgun aim (no scope)",ExpandHandle="LunarAim",
-        GetFunc=function() return featureState().Settings.AimShotgun end,
-        SetFunc=function(c,v) featureState().SetAimShotgun(value(c,v));return true end}
     -- V9.3: ESP master switch + range slider.
     Other[#Other+1]={Key="LunarEspMaster",UI=AliasMap.Switcher,Text="ESP Master",ExpandIndex=0,
         GetFunc=function() return _G.g_vipserver_VIPShotESP.Enabled==true end,
@@ -1854,82 +1865,87 @@ do
        -- EventType=F.AimSettingsEventType,EventID=F.AimSettingsEventID,
     --    GetFunc=function() return featureState().Settings.Aim2Enabled end,
       --  SetFunc=function(c,v) featureState().SetAim2(value(c,v));return true end}
-      -- ============================================================
--- STEP 3: Skin toggles (SKIN MENU)
--- ============================================================
-Other[#Other+1] = {
-    Key = "LunarSkinMaster",
-    UI  = AliasMap.Switcher,
-    Text = "Skin Changer (Master)",
-    GetFunc = function() return _G.MWConfig.ModSkin == true end,
-    SetFunc = function(c, v)
-        _G.MWConfig.ModSkin = (v == true or v == 1)
-        if _G.AddOutfit then
+    -- V9.8: Skin module ka apna alag section (SKINS tab). Ye rows pehle
+    -- EXTRA FEATURES me padi thi, isliye skins ka koi alag control nahi tha.
+    local function startSkinModule()
+        if type(_G.StartAddOutfit) == "function" then pcall(_G.StartAddOutfit) end
+    end
+    local Skin={}
+    Skin[#Skin+1] = {
+        Key = "LunarSkinMaster",
+        UI  = AliasMap.Switcher,
+        Text = "Skin Changer (Master)",
+        GetFunc = function() return _G.MWConfig.ModSkin == true end,
+        SetFunc = function(c, v)
+            _G.MWConfig.ModSkin = (v == true or v == 1)
             if _G.MWConfig.ModSkin then
-                pcall(_G.AddOutfit.start)
-                pcall(_G.AddOutfit.injectAll)
+                startSkinModule()
+                if _G.AddOutfit then
+                    pcall(_G.AddOutfit.injectAll)
+                end
             end
-        end
-        return true
-    end,
-}
-
-Other[#Other+1] = {
-    Key = "LunarSkinDeadBox",
-    UI  = AliasMap.Switcher,
-    Text = "Dead Box Skin",
-    GetFunc = function() return _G.MWConfig.SkinDeadBox == true end,
-    SetFunc = function(c, v) _G.MWConfig.SkinDeadBox = (v == true or v == 1); return true end,
-}
-
-Other[#Other+1] = {
-    Key = "LunarSkinAttachment",
-    UI  = AliasMap.Switcher,
-    Text = "Weapon Attachment Skin",
-    GetFunc = function() return _G.MWConfig.SkinAttachment == true end,
-    SetFunc = function(c, v) _G.MWConfig.SkinAttachment = (v == true or v == 1); return true end,
-}
-
-Other[#Other+1] = {
-    Key = "LunarKillMessage",
-    UI  = AliasMap.Switcher,
-    Text = "Kill Message",
-    GetFunc = function() return _G.MWConfig.KillMessage == true end,
-    SetFunc = function(c, v) _G.MWConfig.KillMessage = (v == true or v == 1); return true end,
-}
-
-Other[#Other+1] = {
-    Key = "LunarKillCountUI",
-    UI  = AliasMap.Switcher,
-    Text = "Kill Counter UI",
-    GetFunc = function() return _G.MWConfig.KillCountUI == true end,
-    SetFunc = function(c, v) _G.MWConfig.KillCountUI = (v == true or v == 1); return true end,
-}
-
-Other[#Other+1] = {
-    Key = "LunarModEmote",
-    UI  = AliasMap.Switcher,
-    Text = "Unlock All Emotes",
-    GetFunc = function() return _G.MWConfig.ModEmote == true end,
-    SetFunc = function(c, v) _G.MWConfig.ModEmote = (v == true or v == 1); return true end,
-}
-
--- V9.3: one-tap skin re-apply (acts as a button, always reads back off).
-Other[#Other+1] = {
-    Key = "LunarSkinReapply",
-    UI  = AliasMap.Switcher,
-    Text = "Re-apply outfits",
-    GetFunc = function() return false end,
-    SetFunc = function(c, v)
-        local outfit = _G.AddOutfit
-        if type(outfit) ~= "table" then return true end
-        if type(outfit.persistLoadFromDisk) == "function" then pcall(outfit.persistLoadFromDisk) end
-        if type(outfit.persistApplyLoaded) == "function" then pcall(outfit.persistApplyLoaded) end
-        if type(outfit.reapplyLobbyEquipped) == "function" then pcall(outfit.reapplyLobbyEquipped) end
-        if type(outfit.injectAll) == "function" then pcall(outfit.injectAll) end
-        return true
-    end,
-}
+            return true
+        end,
+    }
+    Skin[#Skin+1] = {
+        Key = "LunarSkinSafe",
+        UI  = AliasMap.Switcher,
+        Text = "Client-only (anti-ban)",
+        GetFunc = function() return featureState().Settings.SkinSafeMode ~= false end,
+        SetFunc = function(c, v) featureState().SetSkinSafeMode(value(c, v)); return true end,
+    }
+    Skin[#Skin+1] = {
+        Key = "LunarSkinDeadBox",
+        UI  = AliasMap.Switcher,
+        Text = "Dead Box Skin",
+        GetFunc = function() return _G.MWConfig.SkinDeadBox == true end,
+        SetFunc = function(c, v) _G.MWConfig.SkinDeadBox = (v == true or v == 1); return true end,
+    }
+    Skin[#Skin+1] = {
+        Key = "LunarSkinAttachment",
+        UI  = AliasMap.Switcher,
+        Text = "Weapon Attachment Skin",
+        GetFunc = function() return _G.MWConfig.SkinAttachment == true end,
+        SetFunc = function(c, v) _G.MWConfig.SkinAttachment = (v == true or v == 1); return true end,
+    }
+    Skin[#Skin+1] = {
+        Key = "LunarKillMessage",
+        UI  = AliasMap.Switcher,
+        Text = "Kill Message",
+        GetFunc = function() return _G.MWConfig.KillMessage == true end,
+        SetFunc = function(c, v) _G.MWConfig.KillMessage = (v == true or v == 1); return true end,
+    }
+    Skin[#Skin+1] = {
+        Key = "LunarKillCountUI",
+        UI  = AliasMap.Switcher,
+        Text = "Kill Counter UI",
+        GetFunc = function() return _G.MWConfig.KillCountUI == true end,
+        SetFunc = function(c, v) _G.MWConfig.KillCountUI = (v == true or v == 1); return true end,
+    }
+    Skin[#Skin+1] = {
+        Key = "LunarModEmote",
+        UI  = AliasMap.Switcher,
+        Text = "Unlock All Emotes",
+        GetFunc = function() return _G.MWConfig.ModEmote == true end,
+        SetFunc = function(c, v) _G.MWConfig.ModEmote = (v == true or v == 1); return true end,
+    }
+    -- V9.3: one-tap skin re-apply (acts as a button, always reads back off).
+    Skin[#Skin+1] = {
+        Key = "LunarSkinReapply",
+        UI  = AliasMap.Switcher,
+        Text = "Re-apply outfits",
+        GetFunc = function() return false end,
+        SetFunc = function(c, v)
+            local outfit = _G.AddOutfit
+            if type(outfit) ~= "table" then return true end
+            startSkinModule()
+            if type(outfit.persistLoadFromDisk) == "function" then pcall(outfit.persistLoadFromDisk) end
+            if type(outfit.persistApplyLoaded) == "function" then pcall(outfit.persistApplyLoaded) end
+            if type(outfit.reapplyLobbyEquipped) == "function" then pcall(outfit.reapplyLobbyEquipped) end
+            if type(outfit.injectAll) == "function" then pcall(outfit.injectAll) end
+            return true
+        end,
+    }
     Other[#Other+1]={Key="LunarMortarAim",UI=AliasMap.Switcher,Text="Mortar aim",
         GetFunc=function() return featureState().Settings.MortarEnabled end,
         SetFunc=function(c,v) featureState().SetMortar(value(c,v));return true end}
@@ -1942,9 +1958,16 @@ Other[#Other+1] = {
             GetFunc=function() return featureState().Settings[key] end,
             SetFunc=function(c,v) return featureState().SetWallColor(key,value(c,v)) end})
     end
+    -- V9.7: Wall Hack crash guard. Safe mode only touches character meshes.
+    Other[#Other+1]={Key="LunarWallSafe",UI=AliasMap.Switcher,Text="Safe mode (anti-crash)",
+        ExpandHandle="LunarWall",
+        GetFunc=function() return featureState().Settings.WallSafeMode end,
+        SetFunc=function(c,v) featureState().SetWallSafeMode(value(c,v));return true end}
     local page={Key="HackMenu",Text="VIP MENU",UIKey="Setting_Page_Privacy",Category={
+        {Key="Lunar_AimBot",Text="AIMBOT",Stack=Aim},
         {Key="Lunar_ESP_V1",Text="ESP V1",Stack=V1},
         {Key="Lunar_ESP_V2",Text="ESP V2",Stack=V2},
+        {Key="Lunar_Skin",Text="SKINS",Stack=Skin},
         {Key="Lunar_Other",Text="EXTRA FEATURES",Stack=Other}
     }}
 
@@ -1993,7 +2016,7 @@ Other[#Other+1] = {
         state.Ready = state.Registered and state.HookInstalled == true
         if state.Ready then
             state.LastError = nil
-            _G.HackMenuInitialized = "VIP_SERVER_NATIVE_SETTINGS_V9_6"
+            _G.HackMenuInitialized = "VIP_SERVER_NATIVE_SETTINGS_V9_8"
         else state.LastError = "SETTINGS_UI_MANAGER_NOT_READY" end
         return state.Ready
     end
@@ -4892,6 +4915,9 @@ do
     settings.AimTarget=number(settings.AimTarget,1,3,1)
     settings.AimEnabled=settings.AimEnabled==true
     settings.WallEnabled=settings.WallEnabled==true
+    settings.WallSafeMode=settings.WallSafeMode~=false
+    -- V9.8: skins ke server-synced writes band rakhne wala switch.
+    settings.SkinSafeMode=settings.SkinSafeMode~=false
     settings.WallVisible=number(settings.WallVisible,1,7,1)
     settings.WallOccluded=number(settings.WallOccluded,1,7,2)
     settings.Aim2Enabled=settings.Aim2Enabled==true
@@ -4947,7 +4973,7 @@ do
                         local val=payload:match("%f[%w_]"..key.."%s*=%s*(%a+)")
                         if val=="true" or val=="false" then settings[key]=val=="true" end
                     end
-                    for _,key in ipairs({"AimSniperScope","AimShotgun"}) do
+                    for _,key in ipairs({"AimSniperScope","AimShotgun","WallSafeMode","SkinSafeMode"}) do
                         local val=payload:match("%f[%w_]"..key.."%s*=%s*(%a+)")
                         if val=="true" or val=="false" then settings[key]=val=="true" end
                     end
@@ -4985,7 +5011,7 @@ do
         if not F.Dirty or not io or not io.open then return end
         local lines={"return {", "  IpadEnabled = "..tostring(_G.MWConfig.IpadView==true)..","}
         for _,key in ipairs({"AimEnabled","WallEnabled","Aim2Enabled","MortarEnabled","IpadFOV","AimSpeed","AimTarget","WallVisible","WallOccluded","AimFOV","AimDist","EspRange","EspMaxTargets"}) do lines[#lines+1]="  "..key.." = "..tostring(settings[key]).."," end
-        for _,key in ipairs({"AimVisCheck","AimIgKnock","AimIgBot","AimSniperScope","AimShotgun"}) do lines[#lines+1]="  "..key.." = "..tostring(settings[key]==true).."," end
+        for _,key in ipairs({"AimVisCheck","AimIgKnock","AimIgBot","AimSniperScope","AimShotgun","WallSafeMode","SkinSafeMode"}) do lines[#lines+1]="  "..key.." = "..tostring(settings[key]==true).."," end
         for _,key in ipairs({"Name","Line","Health","Distance","EnemyCounter"}) do lines[#lines+1]="  V1_"..key.." = "..tostring(_G.g_Botmater_ESPOptions[key]==true).."," end
         for _,key in ipairs({"Name","Line","Box","Health","Distance","Skeleton","Counter"}) do lines[#lines+1]="  V2_"..key.." = "..tostring(_G.g_vipserver_ESPOptions[key]==true).."," end
         lines[#lines+1]="}"
@@ -5181,6 +5207,11 @@ do
         local changed=settings.WallEnabled~=(enabled==true or enabled==1)
         settings.WallEnabled=enabled==true or enabled==1
         if not settings.WallEnabled and F.Wall then F.Wall.Stop() end
+        if settings.WallEnabled and F.Wall then
+            -- Fresh manual enable clears the quarantine counter for this match.
+            F.Wall.Errors=0;F.Wall.Quarantine=false
+            _G.LunarWallNotice=nil
+        end
         F.MarkDirty(true)
         if changed then F.RefreshWallSettings() end
         if F.Wake then F.Wake() end
@@ -5194,6 +5225,29 @@ do
         F.MarkDirty(true)
         F.RefreshWallSettings()
         if settings.WallEnabled and F.Wake then F.Wake() end
+        return true
+    end
+    -- V9.7: safe mode limits Wall Hack to character meshes (no world/vehicle
+    -- components), which is where the native dyeing calls used to crash.
+    F.SetWallSafeMode=function(enabled)
+        settings.WallSafeMode=(enabled==true or enabled==1)
+        if F.Wall then
+            F.Wall.SafeMode=settings.WallSafeMode
+            F.Wall.LastTick=-999
+        end
+        F.MarkDirty(true)
+        if settings.WallEnabled and F.Wake then F.Wake() end
+        return true
+    end
+    -- V9.8: skin anti-ban switch. ON = skins sirf client par lagti hain, koi
+    -- bhi wear-cache / depot / head-show server write nahi hoti.
+    F.SetSkinSafeMode=function(enabled)
+        settings.SkinSafeMode=(enabled==true or enabled==1)
+        if _G.MWConfig then _G.MWConfig.SkinSafeMode=settings.SkinSafeMode end
+        F.MarkDirty(true)
+        if _G.MWConfig and _G.MWConfig.ModSkin and type(_G.StartAddOutfit)=="function" then
+            pcall(_G.StartAddOutfit)
+        end
         return true
     end
     -- Feature correspondence is resolved at setting changes only, never per frame.
@@ -5907,9 +5961,10 @@ do
     local classes={}
     for _,name in ipairs({"SkeletalMeshComponent","StaticMeshComponent"}) do
         local ok,value=pcall(import,name)
-        if ok and value then classes[#classes+1]=value end
+        if ok and value then classes[#classes+1]={Class=value,Name=name} end
     end
-    local W={Meshes={},Pawns={},LastTick=-999,LastCleanup=-999,CleanupInterval=1/60,ConsoleWorld=nil,Applied=0}
+    local W={Meshes={},Pawns={},LastTick=-999,LastCleanup=-999,CleanupInterval=1/60,ConsoleWorld=nil,Applied=0,
+        SafeMode=true,MaxMeshes=180,Budget=0,Errors=0,Quarantine=false}
     F.Wall=W
     local properties={
         {"SetDrawDyeing","bDrawDyeing"},{"SetDrawHighlight","bDrawHighlight"},
@@ -5940,6 +5995,22 @@ do
         W.LastTick=-999
     end
     W.UpdateColors()
+    W.SafeMode = F.Settings.WallSafeMode ~= false
+    local function noteError(call,err)
+        W.Errors=(W.Errors or 0)+1
+        F.Error("Wall."..tostring(call),err)
+        -- Repeated failures mean this match/mode does not accept the native
+        -- dyeing calls. Step down to safe mode, then quarantine the feature
+        -- for the rest of the match instead of risking a crash.
+        if W.Errors>=40 and not W.SafeMode then W.SafeMode=true;W.LastTick=-999 end
+        if W.Errors>=140 and not W.Quarantine then
+            W.Quarantine=true
+            F.Settings.WallEnabled=false
+            _G.LunarWallNotice="Wall Hack auto-paused after native errors. Turn it on again from the menu."
+            if F.MarkDirty then F.MarkDirty(true) end
+            pcall(W.Stop)
+        end
+    end
     local function invoke(mesh,call)
         local method=mesh[call[1]]
         if not method then return end
@@ -5952,7 +6023,7 @@ do
         end
     end
     W.Stop=function()
-        for mesh,state in pairs(W.Meshes) do restore(mesh,state) end
+        for mesh,state in pairs(W.Meshes) do pcall(restore,mesh,state) end
         W.Meshes={};W.Pawns={}
         W.LastTick=-999;W.LastCleanup=-999
     end
@@ -5972,11 +6043,22 @@ do
             end
         end
     end
-    local function apply(mesh,pawn,seen)
+    local function apply(mesh,pawn,seen,strict)
         if not valid(mesh) or seen[mesh] then return end
+        -- V9.7: hard limit on *new* meshes per tick (a stall/crash window in
+        -- big fights). Refreshing an already-known mesh adds no new risk.
+        local isNew=W.Meshes[mesh]==nil
+        if isNew and (W.Budget or 0)<=0 then return end
+        -- In safe mode only components owned by this pawn are touched. Foreign
+        -- skinned cosmetics are what crashed in some game modes.
+        if strict then
+            local okOwner,owner=pcall(function() return mesh.GetOwner and mesh:GetOwner() end)
+            if okOwner and owner~=nil and valid(owner) and owner~=pawn then return end
+        end
         seen[mesh]=true
         local original=W.Meshes[mesh]
         if not original then
+            W.Budget=(W.Budget or 0)-1
             original={}
             for _,pair in ipairs(properties) do pcall(function() original[pair[2]]=mesh[pair[2]]==true end) end
             W.Meshes[mesh]=original
@@ -5993,7 +6075,7 @@ do
         -- extension does not prevent other reference rendering modes from applying.
         for _,call in ipairs(colorCalls) do
             local ok,err=pcall(invoke,mesh,call)
-            if not ok then F.Error("Wall."..call[1],err) end
+            if not ok then noteError(call[1],err) end
         end
         W.Applied=W.Applied+1
     end
@@ -6003,6 +6085,10 @@ do
         me=me or g_vipserver_ESPGetLocalCharacter()
         pc=pc or g_vipserver_ESPGetController()
         if not valid(me) or not valid(pc) then W.Stop() return end
+        -- Death cam / spectator swap: meshes are being replaced here, so keep
+        -- hands off until the next spawn instead of poking stale components.
+        local okAlive,alive=pcall(function() return me.IsAlive and me:IsAlive() end)
+        if okAlive and alive==false then return end
         local maxRange=tonumber(_G.g_vipserver_VIPShotESP.MaxRangeMeters) or 450.0
         if maxRange~=maxRange or maxRange<=0 or maxRange==math.huge then maxRange=450.0 end
         local myLocation=ESPShared.GetFrameRecord(me).Location
@@ -6013,6 +6099,7 @@ do
         W.LastTick=now
         local world=g_vipserver_ESPWorld()
         if world~=W.ConsoleWorld then
+            W.Errors=0
             local ok=pcall(function()
                 if not world or not UKismetSystemLibrary.ExecuteConsoleCommand then return end
                 for _,command in ipairs({"r.EnableDrawDyeingColor 1","r.CustomDepth 3","r.IdeaOutline.Enable 1","r.Highlight.Enable 1"}) do
@@ -6024,6 +6111,9 @@ do
         local pawns=ESPShared.GetFramePawns()
         if not pawns then return end
         local seen={}
+        -- V9.7: per-tick application budget. Keeps a big fight from touching
+        -- hundreds of new components in one frame.
+        W.Budget=W.MaxMeshes or 180
         local myTeam=me.TeamID or 0
         for _,pawn in pairs(pawns) do
             if valid(pawn) and pawn~=me and pawn.TeamID~=myTeam and relevant(pawn,myLocation,maxRange,pc) then
@@ -6034,14 +6124,18 @@ do
                     if not avatar and pawn.getAvatarComponent2 then avatar=pawn:getAvatarComponent2() end
                 end)
                 if avatar and avatar.GetMeshCompBySlot then
-                    for slot=0,7 do pcall(function() apply(avatar:GetMeshCompBySlot(slot),pawn,seen) end) end
+                    for slot=0,7 do pcall(function() apply(avatar:GetMeshCompBySlot(slot),pawn,seen,true) end) end
                 end
-                for _,class in ipairs(classes) do
-                    pcall(function()
-                        if not pawn.GetComponentsByClass then return end
-                        local components=pawn:GetComponentsByClass(class)
-                        if components then for i=0,components:Num()-1 do apply(components:Get(i),pawn,seen) end end
-                    end)
+                for _,entry in ipairs(classes) do
+                    -- Safe mode: skeletal character meshes only. Static mesh
+                    -- components (props/vehicles) are the risky ones.
+                    if not (W.SafeMode and entry.Name~="SkeletalMeshComponent") then
+                        pcall(function()
+                            if not pawn.GetComponentsByClass then return end
+                            local components=pawn:GetComponentsByClass(entry.Class)
+                            if components then for i=0,components:Num()-1 do apply(components:Get(i),pawn,seen,true) end end
+                        end)
+                    end
                 end
                 pcall(function()
                     local weapon=pawn.GetCurrentWeapon and pawn:GetCurrentWeapon()
@@ -6049,13 +6143,17 @@ do
                 end)
             end
         end
+        local meshCount=0
         for mesh,state in pairs(W.Meshes) do
+            meshCount=meshCount+1
             if not seen[mesh] then
                 restore(mesh,state);W.Meshes[mesh]=nil
                 local owned=W.Pawns[state.Pawn]
                 if owned then owned[mesh]=nil;if next(owned)==nil then W.Pawns[state.Pawn]=nil end end
             end
         end
+        _G.LunarWallDiag={Applied=W.Applied,Meshes=meshCount,SafeMode=W.SafeMode==true,
+            Errors=W.Errors or 0,Quarantine=W.Quarantine==true,Notice=_G.LunarWallNotice}
     end
     _G.StartWallhack=function() F.SetWall(true) end
     _G.StopWallhack=function() F.SetWall(false) end
@@ -13002,9 +13100,13 @@ F.putOnRoleWear = function(insID)
                     bag.helmet_skin = insID
                     -- [FIX VIP] Ép hiển thị Mũ 3D ngoài sảnh
                     fbd:SetHeadShow(insID)
-                    local WRH = require("client.network.Protocol.WardRobeHandler")
-                    if WRH and WRH.send_depot_set_head_show_req then 
-                        WRH.send_depot_set_head_show_req(insID) 
+                    -- V9.8: injected (fake) instance ID server ko kabhi nahi
+                    -- bhejna. Yahi request ban ka direct reason thi.
+                    if not F.isInjectedIns(insID) then
+                        local WRH = require("client.network.Protocol.WardRobeHandler")
+                        if WRH and WRH.send_depot_set_head_show_req then 
+                            WRH.send_depot_set_head_show_req(insID) 
+                        end
                     end
                 end
             end
@@ -13710,6 +13812,9 @@ end
 
 function F.syncDepotShowWeaponFlags(depot)
     depot = depot or {}
+    -- V9.8: safe mode me server-synced display settings ko wear data me copy
+    -- nahi karte, taaki pspace_wear_ext server state se mismatch na ho.
+    if _G.LunarSkinSafe() then return depot end
     pcall(function()
         local lds = require("client.slua.logic.wardrobe.logic_display_setting")
         if lds.data then
@@ -13722,6 +13827,9 @@ end
 
 function F.applyInjectedPspace(roleData)
     if not roleData then return end
+    -- V9.8: safe mode = client-only. roleData server-synced structure hai,
+    -- isme fake res IDs likhna hi ban ka sabse bada vector tha.
+    if _G.LunarSkinSafe() then return roleData end
     roleData.bshow = true
     roleData.pspace_wear_ext = roleData.pspace_wear_ext or {}
     local outfitRes = F.resolveLobbyOutfitRes()
@@ -13741,6 +13849,9 @@ function F.applyInjectedPspace(roleData)
 end
 
 function F.patchSelfWearCache(force)
+    -- V9.8: safe mode me BasicDataAvatarWearInfo cache (server se aayi wear
+    -- info) ko patch nahi karte.
+    if _G.LunarSkinSafe() then return false end
     local key = F.wearPatchKey()
     if not force and SOCIAL.wearPatchKey == key then return false end
     SOCIAL.wearPatchKey = key
@@ -13837,6 +13948,7 @@ end
 
 function F.mergeInjectedWeaponIntoWearData(wearData)
     if not F.isMyWearData(wearData) then return end
+    if _G.LunarSkinSafe() then return end
     local skinRes = F.resolveLobbyWeaponSkinRes()
     wearData.depot_show_info = F.syncDepotShowWeaponFlags(wearData.depot_show_info)
     if not skinRes or skinRes <= 0 then return end
@@ -14351,6 +14463,9 @@ function F.hookPutOn()
         WRH.send_depot_put_on_req = function(insID, extra)
             insID = tonumber(insID)
             if F.tryLocalWearByIns(insID) then return end
+            -- V9.8: local handler na mile to bhi injected ID server ko nahi
+            -- jayegi (fake instance ID = anti-cheat flag).
+            if F.isInjectedIns(insID) then return end
             return o(insID, extra)
         end
     end)
@@ -16617,6 +16732,8 @@ function F.hookWardrobePutOnReq()
                 if itemData then
                     local insID = tonumber(itemData.ins_id or itemData.insID)
                     local resID = tonumber(itemData.res_id or itemData.resID)
+                    -- V9.8: injected instance ID server ko forward nahi karte.
+                    if F.isInjectedIns(insID) then return end
                     F.clearItemExpire(itemData, insID, resID)
                     F.ensureDepotItemValid(insID, resID)
                 end
@@ -16810,7 +16927,8 @@ function F.hookGarageTheme()
                         end
                     end
 
-                    pcall(function() GarageThemeSystem:ReportSpecialEffectTlog() end)
+                    -- V9.8: safe mode me injected vehicle ka telemetry report bhi nahi.
+                    if not _G.LunarSkinSafe() then pcall(function() GarageThemeSystem:ReportSpecialEffectTlog() end) end
                     if EventSystem and EVENTTYPE_LOBBY_THEME and EVENTID_GARAGE_VEHICLE_DATA_CHANGE then
                         EventSystem:postEvent(EVENTTYPE_LOBBY_THEME, EVENTID_GARAGE_VEHICLE_DATA_CHANGE)
                     end
@@ -16880,7 +16998,8 @@ function F.hookGarageTheme()
                     end
                 end
 
-                pcall(function() GarageThemeSystem:ReportSpecialEffectTlog() end)
+                -- V9.8: safe mode me injected vehicle ka telemetry report bhi nahi.
+                if not _G.LunarSkinSafe() then pcall(function() GarageThemeSystem:ReportSpecialEffectTlog() end) end
                 if EventSystem and EVENTTYPE_LOBBY_THEME and EVENTID_GARAGE_VEHICLE_DATA_CHANGE then
                     EventSystem:postEvent(EVENTTYPE_LOBBY_THEME, EVENTID_GARAGE_VEHICLE_DATA_CHANGE)
                 end
@@ -17879,7 +17998,21 @@ end)
 end
 
 _G.AddOutfit = F
-F.start()
+-- V9.8: Lazy start. Pehle F.start() load hote hi ~30 native hooks laga deta tha
+-- (chahe skins off ho). Ab sirf tab jab Skin Master ON ho.
+_G.AddOutfitStarted = false
+_G.StartAddOutfit = function()
+    if _G.AddOutfitStarted then return true end
+    if type(F.start) ~= "function" then return false end
+    local ok, err = pcall(F.start)
+    if not ok then
+        if _G.LunarFeatures and _G.LunarFeatures.Error then pcall(_G.LunarFeatures.Error, "Skin.Start", err) end
+        return false
+    end
+    _G.AddOutfitStarted = true
+    return true
+end
+if _G.MWConfig.ModSkin == true then pcall(_G.StartAddOutfit) end
 -- ==========================================================
 -- [FIX] FORCE REAPPLY SKIN IN MATCH (safety net)
 -- ==========================================================
