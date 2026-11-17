@@ -706,7 +706,7 @@ local VIPLicenseCore = (function()
 
     local CreateLocalExpiry = function(cfg)
         local E = {}
-        local expiredText = 'Mod expired. Contact @ZakPubgSkin for renewal.'
+        local expiredText = 'Mod expired. Contact for renewal.'
         local tamperText  = "Don't be over smart"
         local blockedMessage, blockedPhase
         local function finite(n) return type(n) == 'number' and n == n and n ~= math.huge and n ~= -math.huge end
@@ -1243,7 +1243,7 @@ end)()
                 d.Detail=text("NO KILL LIMIT",px+16,109,pw-32,34,23,white,7,true,true)
                 d.Hint=text("PLAY SMART LIKE PRO",30,165,W-60,32,17,forest,7,true,true)
             else
-                d.Title=text("TELEGRAM ZakPubgSkin",22,15,W-44,31,24,white,7,true,true)
+                d.Title=text("VIP PREMIUM PAK",22,15,W-44,31,24,white,7,true,true)
                 text("LOGIN PAGE",22,45,W-44,21,12,white,7,true,true)
                 line(W/2-118,56,W/2-47,56,1,color(251,244,228),7)
                 line(W/2+47,56,W/2+118,56,1,color(251,244,228),7)
@@ -1608,7 +1608,7 @@ end
 -- Feature rows, option values and authentication stay owned by this script.
 local g_vipserver_EnsureHackMenu
 do
-    local VERSION = "LunarSettings.V9.2.MenuFix"
+    local VERSION = "LunarSettings.V9.3.MenuFix"
     local function runtime()
         local state = _G.LunarNativeSettingsRuntime
         if type(state) ~= "table" then state = {}; _G.LunarNativeSettingsRuntime = state end
@@ -1807,6 +1807,42 @@ do
         SwitcherText={"Head","Body","Leg"},SwitcherValue={1,2,3},
         GetFunc=function() return featureState().Settings.AimTarget end,
         SetFunc=function(c,v) featureState().SetAimTarget(value(c,v));return true end}
+    -- V9.3: Aimbot V1 tuning rows (nested under the Aimbot V1 switch).
+    if sliderReady then
+        Other[#Other+1]=rangeItem("LunarAimFOV","Aim FOV",10,100,"LunarAim",
+            function() return featureState().Settings.AimFOV end,"SetAimFOV")
+    end
+    if sliderReady then
+        Other[#Other+1]=rangeItem("LunarAimDist","Aim distance",50,400,"LunarAim",
+            function() return featureState().Settings.AimDist end,"SetAimDist")
+    end
+    Other[#Other+1]={Key="LunarAimVis",UI=AliasMap.Switcher,Text="Visible only",ExpandHandle="LunarAim",
+        GetFunc=function() return featureState().Settings.AimVisCheck end,
+        SetFunc=function(c,v) featureState().SetAimVisCheck(value(c,v));return true end}
+    Other[#Other+1]={Key="LunarAimKnock",UI=AliasMap.Switcher,Text="Ignore knocked",ExpandHandle="LunarAim",
+        GetFunc=function() return featureState().Settings.AimIgKnock end,
+        SetFunc=function(c,v) featureState().SetAimIgKnock(value(c,v));return true end}
+    Other[#Other+1]={Key="LunarAimBot",UI=AliasMap.Switcher,Text="Ignore bots",ExpandHandle="LunarAim",
+        GetFunc=function() return featureState().Settings.AimIgBot end,
+        SetFunc=function(c,v) featureState().SetAimIgBot(value(c,v));return true end}
+    -- V9.3: ESP master switch + range slider.
+    Other[#Other+1]={Key="LunarEspMaster",UI=AliasMap.Switcher,Text="ESP Master",ExpandIndex=0,
+        GetFunc=function() return _G.g_vipserver_VIPShotESP.Enabled==true end,
+        SetFunc=function(c,v)
+            local on=(value(c,v)==true or value(c,v)==1)
+            _G.g_vipserver_VIPShotESP.Enabled=on
+            if _G.g_Botmater_VIPShotESP then _G.g_Botmater_VIPShotESP.Enabled=on end
+            if on and featureState().Wake then featureState().Wake() end
+            return true
+        end}
+    if sliderReady then
+        Other[#Other+1]=rangeItem("LunarEspRange","ESP distance",400,1000,"LunarEspMaster",
+            function() return featureState().Settings.EspRange end,"SetEspRange")
+    end
+    if sliderReady then
+        Other[#Other+1]=rangeItem("LunarEspTargets","ESP max targets",5,64,"LunarEspMaster",
+            function() return featureState().Settings.EspMaxTargets end,"SetEspMaxTargets")
+    end
    -- Other[#Other+1]={Key="LunarAim2",UI=AliasMap.Switcher,Text="Aimbot V2",
        -- EventType=F.AimSettingsEventType,EventID=F.AimSettingsEventID,
     --    GetFunc=function() return featureState().Settings.Aim2Enabled end,
@@ -1870,6 +1906,23 @@ Other[#Other+1] = {
     GetFunc = function() return _G.MWConfig.ModEmote == true end,
     SetFunc = function(c, v) _G.MWConfig.ModEmote = (v == true or v == 1); return true end,
 }
+
+-- V9.3: one-tap skin re-apply (acts as a button, always reads back off).
+Other[#Other+1] = {
+    Key = "LunarSkinReapply",
+    UI  = AliasMap.Switcher,
+    Text = "Re-apply outfits",
+    GetFunc = function() return false end,
+    SetFunc = function(c, v)
+        local outfit = _G.AddOutfit
+        if type(outfit) ~= "table" then return true end
+        if type(outfit.persistLoadFromDisk) == "function" then pcall(outfit.persistLoadFromDisk) end
+        if type(outfit.persistApplyLoaded) == "function" then pcall(outfit.persistApplyLoaded) end
+        if type(outfit.reapplyLobbyEquipped) == "function" then pcall(outfit.reapplyLobbyEquipped) end
+        if type(outfit.injectAll) == "function" then pcall(outfit.injectAll) end
+        return true
+    end,
+}
     Other[#Other+1]={Key="LunarMortarAim",UI=AliasMap.Switcher,Text="Mortar aim",
         GetFunc=function() return featureState().Settings.MortarEnabled end,
         SetFunc=function(c,v) featureState().SetMortar(value(c,v));return true end}
@@ -1882,7 +1935,7 @@ Other[#Other+1] = {
             GetFunc=function() return featureState().Settings[key] end,
             SetFunc=function(c,v) return featureState().SetWallColor(key,value(c,v)) end})
     end
-    local page={Key="HackMenu",Text="VIP ZakPubgSkin MENU",UIKey="Setting_Page_Privacy",Category={
+    local page={Key="HackMenu",Text="VIP MENU",UIKey="Setting_Page_Privacy",Category={
         {Key="Lunar_ESP_V1",Text="ESP V1",Stack=V1},
         {Key="Lunar_ESP_V2",Text="ESP V2",Stack=V2},
         {Key="Lunar_Other",Text="EXTRA FEATURES",Stack=Other}
@@ -1933,7 +1986,7 @@ Other[#Other+1] = {
         state.Ready = state.Registered and state.HookInstalled == true
         if state.Ready then
             state.LastError = nil
-            _G.HackMenuInitialized = "VIP_SERVER_NATIVE_SETTINGS_V9_2"
+            _G.HackMenuInitialized = "VIP_SERVER_NATIVE_SETTINGS_V9_3"
         else state.LastError = "SETTINGS_UI_MANAGER_NOT_READY" end
         return state.Ready
     end
@@ -1974,16 +2027,16 @@ end
 _G.g_vipserver_VIPShotESP = _G.g_vipserver_VIPShotESP or {
 
     Enabled = true,
-    MaxRangeMeters = 450.0,
+    MaxRangeMeters = 1000.0,
 
     -- Target 60 updates/sec when the engine timer permits. No skeleton decimation.
     -- Discovery is separate from rendering; every rendered pose uses fresh projections.
-    ScanInterval = 0.35,
+    ScanInterval = 0.1,
     UpdateInterval = 1.0 / 60.0,
-    WidgetBuildBudget = 96, -- New line widgets per update; existing widgets stay live.
+    WidgetBuildBudget = 256, -- New line widgets per update; existing widgets stay live.
     Profile = false,       -- Optional CPU timing in _G.g_vipserver_ESPDiagnostics.
-    TransformInterval = 0.60,
-    MaxRendered = 8,
+    TransformInterval = 0.30,
+    MaxRendered = 50,
 
     CounterY = 36.0,
     CounterWidth = 218.4,
@@ -4836,6 +4889,14 @@ do
     settings.WallOccluded=number(settings.WallOccluded,1,7,2)
     settings.Aim2Enabled=settings.Aim2Enabled==true
     settings.MortarEnabled=settings.MortarEnabled==true
+    -- V9.3 additions: fine-grained Aimbot V1 and ESP controls.
+    settings.AimFOV=number(settings.AimFOV,10,100,30)
+    settings.AimDist=number(settings.AimDist,50,400,120)
+    settings.AimVisCheck=settings.AimVisCheck~=false
+    settings.AimIgKnock=settings.AimIgKnock~=false
+    settings.AimIgBot=settings.AimIgBot==true
+    settings.EspRange=number(settings.EspRange,400,1000,1000)
+    settings.EspMaxTargets=number(settings.EspMaxTargets,5,64,50)
     _G.g_Botmater_ESPOptions=_G.g_Botmater_ESPOptions or {}
     for _,key in ipairs({"Name","Line","Health","Distance","EnemyCounter"}) do
         if _G.g_Botmater_ESPOptions[key]==nil then _G.g_Botmater_ESPOptions[key]=false end
@@ -4864,6 +4925,18 @@ do
                         local val=payload:match("%f[%w_]"..key.."%s*=%s*([%d%.%-]+)")
                         if val then settings[key]=number(val,1,7,settings[key]) end
                     end
+                    for _,key in ipairs({"AimFOV","AimDist","EspRange","EspMaxTargets"}) do
+                        local val=payload:match("%f[%w_]"..key.."%s*=%s*([%d%.%-]+)")
+                        if val then
+                            local lo=(key=="AimFOV" and 10) or (key=="AimDist" and 50) or (key=="EspMaxTargets" and 5) or 400
+                            local hi=(key=="AimFOV" and 100) or (key=="AimDist" and 400) or (key=="EspMaxTargets" and 64) or 1000
+                            settings[key]=number(val,lo,hi,settings[key])
+                        end
+                    end
+                    for _,key in ipairs({"AimVisCheck","AimIgKnock","AimIgBot"}) do
+                        local val=payload:match("%f[%w_]"..key.."%s*=%s*(%a+)")
+                        if val=="true" or val=="false" then settings[key]=val=="true" end
+                    end
                     for _,key in ipairs({"Name","Line","Health","Distance","EnemyCounter"}) do
                         local val=payload:match("%f[%w_]V1_"..key.."%s*=%s*(%a+)")
                         if val=="true" or val=="false" then _G.g_Botmater_ESPOptions[key]=val=="true" end
@@ -4881,6 +4954,10 @@ do
         F.SettingsReadPath=g_vipserver_ESPLoadedSettingsPath:gsub("VIP_SERVER_UMG_ESP_settings%.lua$","VIP_SERVER_FEATURES_V3_settings.lua")
     end
     if settings.Aim2Enabled then settings.AimEnabled=false end
+    if _G.g_vipserver_VIPShotESP then
+        _G.g_vipserver_VIPShotESP.MaxRangeMeters=settings.EspRange
+        _G.g_vipserver_VIPShotESP.MaxRendered=settings.EspMaxTargets
+    end
     _G.LexusState.CustomTextData.IpadViewFOV=settings.IpadFOV
     F.Now=function()
         local now=nil
@@ -4893,7 +4970,8 @@ do
     F.Save=function(force)
         if not F.Dirty or not io or not io.open then return end
         local lines={"return {", "  IpadEnabled = "..tostring(_G.MWConfig.IpadView==true)..","}
-        for _,key in ipairs({"AimEnabled","WallEnabled","Aim2Enabled","MortarEnabled","IpadFOV","AimSpeed","AimTarget","WallVisible","WallOccluded"}) do lines[#lines+1]="  "..key.." = "..tostring(settings[key]).."," end
+        for _,key in ipairs({"AimEnabled","WallEnabled","Aim2Enabled","MortarEnabled","IpadFOV","AimSpeed","AimTarget","WallVisible","WallOccluded","AimFOV","AimDist","EspRange","EspMaxTargets"}) do lines[#lines+1]="  "..key.." = "..tostring(settings[key]).."," end
+        for _,key in ipairs({"AimVisCheck","AimIgKnock","AimIgBot"}) do lines[#lines+1]="  "..key.." = "..tostring(settings[key]==true).."," end
         for _,key in ipairs({"Name","Line","Health","Distance","EnemyCounter"}) do lines[#lines+1]="  V1_"..key.." = "..tostring(_G.g_Botmater_ESPOptions[key]==true).."," end
         for _,key in ipairs({"Name","Line","Box","Health","Distance","Skeleton","Counter"}) do lines[#lines+1]="  V2_"..key.." = "..tostring(_G.g_vipserver_ESPOptions[key]==true).."," end
         lines[#lines+1]="}"
@@ -4938,6 +5016,76 @@ do
         F.MarkDirty()
     end
     F.SetAimTarget=function(value) settings.AimTarget=number(value,1,3,1);F.MarkDirty(true) end
+    -- V9.3: Aimbot V1 tuning. Every write lands on knobs the aim loop already
+    -- reads (AimTouchHip*/Scope*/Sniper*), so a change is effective next frame.
+    local function aimTouchField(suffix,value)
+        local data=_G.XthrlenState and _G.XthrlenState.CustomTextData
+        if not data then return end
+        data["AimTouchHip"..suffix]=value
+        data["AimTouchScope"..suffix]=value
+        data["AimTouchSniper"..suffix]=value
+    end
+    F.SetAimFOV=function(value)
+        settings.AimFOV=number(value,10,100,30)
+        aimTouchField("FOV",settings.AimFOV)
+        F.AimLastClock=nil;F.AimDue=0
+        F.MarkDirty(true)
+    end
+    F.SetAimDist=function(value)
+        settings.AimDist=number(value,50,400,120)
+        aimTouchField("Dist",settings.AimDist)
+        F.AimLastClock=nil;F.AimDue=0
+        F.MarkDirty(true)
+    end
+    F.SetAimVisCheck=function(enabled)
+        settings.AimVisCheck=enabled==true or enabled==1
+        local cfg=_G.XthrlenConfig
+        if cfg then
+            cfg.AimTouchHipVisCheck=settings.AimVisCheck
+            cfg.AimTouchScopeVisCheck=settings.AimVisCheck
+            cfg.AimTouchSniperVisCheck=settings.AimVisCheck
+        end
+        F.MarkDirty(true)
+    end
+    F.SetAimIgKnock=function(enabled)
+        settings.AimIgKnock=enabled==true or enabled==1
+        local cfg=_G.XthrlenConfig
+        if cfg then
+            cfg.AimTouchHipIgKnock=settings.AimIgKnock
+            cfg.AimTouchScopeIgKnock=settings.AimIgKnock
+            cfg.AimTouchSniperIgKnock=settings.AimIgKnock
+        end
+        F.MarkDirty(true)
+    end
+    F.SetAimIgBot=function(enabled)
+        settings.AimIgBot=enabled==true or enabled==1
+        local cfg=_G.XthrlenConfig
+        if cfg then
+            cfg.AimTouchHipIgBot=settings.AimIgBot
+            cfg.AimTouchScopeIgBot=settings.AimIgBot
+            cfg.AimTouchSniperIgBot=settings.AimIgBot
+        end
+        F.MarkDirty(true)
+    end
+    F.SetEspRange=function(value)
+        settings.EspRange=number(value,400,1000,1000)
+        if _G.g_vipserver_VIPShotESP then
+            _G.g_vipserver_VIPShotESP.MaxRangeMeters=settings.EspRange
+        end
+        if _G.g_Botmater_VIPShotESP then
+            _G.g_Botmater_VIPShotESP.MaxRangeMeters=settings.EspRange
+        end
+        F.MarkDirty(true)
+        if F.Wake then F.Wake() end
+    end
+    F.SetEspMaxTargets=function(value)
+        settings.EspMaxTargets=number(value,5,64,50)
+        if _G.g_vipserver_VIPShotESP then
+            _G.g_vipserver_VIPShotESP.MaxRendered=settings.EspMaxTargets
+        end
+        F.MarkDirty(true)
+        if F.Wake then F.Wake() end
+    end
     -- ItemBase supports caller-owned event keys. Both native switches subscribe
     -- through its normal lifecycle; there are no saved widget references.
     F.AimSettingsEventType=-14050701
@@ -5113,13 +5261,16 @@ _G.XthrlenState.CustomTextData = _G.XthrlenState.CustomTextData or {}
 _G.XthrlenConfig.AimTouchEnable        = _G.LunarFeatures.Settings.AimEnabled
 _G.XthrlenConfig.AimTouchHipfire       = true
 _G.XthrlenConfig.AimTouchScopeAll      = true
-_G.XthrlenConfig.AimTouchHipVisCheck   = true
-_G.XthrlenConfig.AimTouchScopeVisCheck = true
-_G.XthrlenConfig.AimTouchHipIgKnock    = true
-_G.XthrlenConfig.AimTouchScopeIgKnock  = true
+_G.XthrlenConfig.AimTouchHipVisCheck   = _G.LunarFeatures.Settings.AimVisCheck
+_G.XthrlenConfig.AimTouchScopeVisCheck = _G.LunarFeatures.Settings.AimVisCheck
+_G.XthrlenConfig.AimTouchSniperVisCheck= _G.LunarFeatures.Settings.AimVisCheck
+_G.XthrlenConfig.AimTouchHipIgKnock    = _G.LunarFeatures.Settings.AimIgKnock
+_G.XthrlenConfig.AimTouchScopeIgKnock  = _G.LunarFeatures.Settings.AimIgKnock
+_G.XthrlenConfig.AimTouchSniperIgKnock = _G.LunarFeatures.Settings.AimIgKnock
 
-_G.XthrlenConfig.AimTouchHipIgBot      = false
-_G.XthrlenConfig.AimTouchScopeIgBot    = false
+_G.XthrlenConfig.AimTouchHipIgBot      = _G.LunarFeatures.Settings.AimIgBot
+_G.XthrlenConfig.AimTouchScopeIgBot    = _G.LunarFeatures.Settings.AimIgBot
+_G.XthrlenConfig.AimTouchSniperIgBot   = _G.LunarFeatures.Settings.AimIgBot
 _G.XthrlenConfig.AimTouchSG            = false
 _G.XthrlenConfig.AimTouchSGAutoFire    = false
 _G.XthrlenConfig.AimTouchScopeSniper   = false
@@ -5130,16 +5281,21 @@ _G.XthrlenState.CustomTextData.AimTouchHipPrio    = 1
 _G.XthrlenState.CustomTextData.AimTouchHipBone    = 1
 _G.XthrlenState.CustomTextData.AimTouchHipCond    = 1
 _G.XthrlenState.CustomTextData.AimTouchHipSpeed   = _G.LunarFeatures.Settings.AimSpeed
-_G.XthrlenState.CustomTextData.AimTouchHipDist    = 120
-_G.XthrlenState.CustomTextData.AimTouchHipFOV     = 30
+_G.XthrlenState.CustomTextData.AimTouchHipDist    = _G.LunarFeatures.Settings.AimDist
+_G.XthrlenState.CustomTextData.AimTouchHipFOV     = _G.LunarFeatures.Settings.AimFOV
 
 _G.XthrlenState.CustomTextData.AimTouchScopePrio   = 1
 _G.XthrlenState.CustomTextData.AimTouchScopeBone   = 1
 _G.XthrlenState.CustomTextData.AimTouchScopeCond   = 1
 _G.XthrlenState.CustomTextData.AimTouchScopeSpeed  = _G.LunarFeatures.Settings.AimSpeed
-_G.XthrlenState.CustomTextData.AimTouchScopeDist   = 120
-_G.XthrlenState.CustomTextData.AimTouchScopeFOV    = 30
+_G.XthrlenState.CustomTextData.AimTouchScopeDist   = _G.LunarFeatures.Settings.AimDist
+_G.XthrlenState.CustomTextData.AimTouchScopeFOV    = _G.LunarFeatures.Settings.AimFOV
 _G.XthrlenState.CustomTextData.AimTouchScopePred   = 0
+
+_G.XthrlenState.CustomTextData.AimTouchSniperDist   = _G.LunarFeatures.Settings.AimDist
+_G.XthrlenState.CustomTextData.AimTouchSniperFOV    = _G.LunarFeatures.Settings.AimFOV
+_G.XthrlenState.CustomTextData.AimTouchSniperSpeed  = _G.LunarFeatures.Settings.AimSpeed
+_G.XthrlenState.CustomTextData.AimTouchSniperPred   = 0
 
 _G.XthrlenState.offPitch = _G.XthrlenState.offPitch or 0
 _G.XthrlenState.offYaw   = _G.XthrlenState.offYaw   or 0
