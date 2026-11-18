@@ -1989,7 +1989,7 @@ do
         {Key="Lunar_AimBot",Text="AIMBOT",Stack=Aim},
         {Key="Lunar_ESP_V1",Text="ESP V1",Stack=V1},
         {Key="Lunar_ESP_V2",Text="ESP V2",Stack=V2},
-        {Key="Lunar_Skin",Text="SKINS",Stack=Skin},
+      --  {Key="Lunar_Skin",Text="SKINS",Stack=Skin},
         {Key="Lunar_Other",Text="EXTRA FEATURES",Stack=Other}
     }}
 
