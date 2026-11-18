@@ -5,86 +5,6 @@ local EPawnState=import("EPawnState")
 local UKismetSystemLibrary=import("KismetSystemLibrary")
 
 -- ============================================================
--- GAME COMPATIBILITY LAYER - All PUBG/BGMI Variants Support
--- ============================================================
--- Ye layer har game version (Global, KR, VN, TW, Flash, BGMI, etc.)
--- ke liye table paths try karega jab tak koi ek match na ho jaye.
-
-_G.GameCompat = _G.GameCompat or {}
-
--- Game detection function
-_G.GameCompat.DetectGame = function()
-    local gameInfo = {
-        region = "Unknown",
-        version = "Unknown",
-        isPUBG = false,
-        isBGMI = false,
-        isKR = false,
-        isVN = false,
-        isTW = false,
-        isFlash = false
-    }
-    
-    -- Check package name or app info
-    pcall(function()
-        if _G.App and _G.App.GetPackageName then
-            local pkg = _G.App.GetPackageName()
-            if pkg then
-                if pkg:find("pubg", 1, true) or pkg:find("PUBG", 1, true) then
-                    gameInfo.isPUBG = true
-                end
-                if pkg:find("bgmi", 1, true) or pkg:find("BGMI", 1, true) or pkg:find("com.ponos.bgmi", 1, true) then
-                    gameInfo.isBGMI = true
-                end
-                if pkg:find("kr", 1, true) or pkg:find("Kakao", 1, true) or pkg:find("kgame", 1, true) then
-                    gameInfo.isKR = true
-                    gameInfo.region = "Korea"
-                end
-                if pkg:find("vn", 1, true) or pkg:find("VNG", 1, true) then
-                    gameInfo.isVN = true
-                    gameInfo.region = "Vietnam"
-                end
-                if pkg:find("tw", 1, true) or pkg:find("Garena", 1, true) then
-                    gameInfo.isTW = true
-                    gameInfo.region = "Taiwan"
-                end
-                if pkg:find("flash", 1, true) or pkg:find("Flash", 1, true) then
-                    gameInfo.isFlash = true
-                    gameInfo.region = "Flash"
-                end
-            end
-        end
-    end)
-    
-    return gameInfo
-end
-
-_G.GameCompat.GameInfo = _G.GameCompat.DetectGame()
-
--- Try multiple paths for a table, return first working one
-_G.GameCompat.LoadTable = function(paths)
-    for _, path in ipairs(paths) do
-        local ok, result = pcall(function() return loadTable(path) end)
-        if ok and type(result) == "table" then
-            return result, path
-        end
-    end
-    return nil, nil
-end
-
--- Try multiple paths for import
-_G.GameCompat.Import = function(paths)
-    for _, path in ipairs(paths) do
-        local ok, result = pcall(function() return import(path) end)
-        if ok and result ~= nil then
-            return result, path
-        end
-    end
-    return nil, nil
-end
-
--- ============================================================
--- STEP 1: MWConfig initialization
 -- ============================================================
 _G.MWConfig = _G.MWConfig or {
     -- Other features (toggles ke liye)
@@ -2032,7 +1952,6 @@ do
         local F = _G.LunarFeatures
         assert(type(F) == "table", "FEATURE_RUNTIME_NOT_READY")
         -- Try multiple regional paths for SettingPageDefine
-        local pages, pagesPath = _G.GameCompat.LoadTable({
             "client.logic.NewSetting.SettingPageDefine",
             "GameLua.Mod.BaseMod.Client.Config.SettingPageDefine",
             "GameLua.Mod.D350.Client.Config.SettingPageDefine",
@@ -2048,7 +1967,6 @@ do
         end
 
         -- Try multiple regional paths for SettingCatalog
-        local catalog, catalogPath = _G.GameCompat.LoadTable({
             "client.logic.NewSetting.SettingCatalog",
             "GameLua.Mod.BaseMod.Client.Config.SettingCatalog",
             "GameLua.Mod.D350.Client.Config.SettingCatalog",
@@ -2064,7 +1982,6 @@ do
         end
 
         -- Try multiple regional paths for AliasMap
-        local aliases, aliasesPath = _G.GameCompat.LoadTable({
             "client.slua.umg.NewSetting.Item.AliasMap",
             "GameLua.Mod.BaseMod.Client.Config.AliasMap",
             "GameLua.Mod.D350.Client.Config.AliasMap",
