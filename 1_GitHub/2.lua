@@ -2086,10 +2086,12 @@ do
         -- Rebuild with both original slider rows as soon as their UI is available.
         local sliderReady = type(aliases.Slider) == "table"
         local compact = aliases.CompactSwitcher or aliases.Switcher
+        local lunarAuth = _G.LunarLoginRuntime and _G.LunarLoginRuntime.Authorized
         local rebuild = state.Version ~= VERSION or not state.Page
             or state.Features ~= F or state.Alias ~= aliases
             or state.Switcher ~= aliases.Switcher or state.Slider ~= aliases.Slider
             or state.CompactSwitcher ~= compact
+            or state.Authorized ~= lunarAuth
         if rebuild then
             state.Page = buildPage(F, aliases, sliderReady)
             state.PageBuilds = (state.PageBuilds or 0) + 1
