@@ -3,8 +3,88 @@ local function startBaselineHacks()
 local GameplayData=require("GameLua.GameCore.Data.GameplayData")
 local EPawnState=import("EPawnState")
 local UKismetSystemLibrary=import("KismetSystemLibrary")
+
 -- ============================================================
--- STEP 1: MWConfig initialization (SKIN FIX)
+-- GAME COMPATIBILITY LAYER - All PUBG/BGMI Variants Support
+-- ============================================================
+-- Ye layer har game version (Global, KR, VN, TW, Flash, BGMI, etc.)
+-- ke liye table paths try karega jab tak koi ek match na ho jaye.
+
+_G.GameCompat = _G.GameCompat or {}
+
+-- Game detection function
+_G.GameCompat.DetectGame = function()
+    local gameInfo = {
+        region = "Unknown",
+        version = "Unknown",
+        isPUBG = false,
+        isBGMI = false,
+        isKR = false,
+        isVN = false,
+        isTW = false,
+        isFlash = false
+    }
+    
+    -- Check package name or app info
+    pcall(function()
+        if _G.App and _G.App.GetPackageName then
+            local pkg = _G.App.GetPackageName()
+            if pkg then
+                if pkg:find("pubg", 1, true) or pkg:find("PUBG", 1, true) then
+                    gameInfo.isPUBG = true
+                end
+                if pkg:find("bgmi", 1, true) or pkg:find("BGMI", 1, true) or pkg:find("com.ponos.bgmi", 1, true) then
+                    gameInfo.isBGMI = true
+                end
+                if pkg:find("kr", 1, true) or pkg:find("Kakao", 1, true) or pkg:find("kgame", 1, true) then
+                    gameInfo.isKR = true
+                    gameInfo.region = "Korea"
+                end
+                if pkg:find("vn", 1, true) or pkg:find("VNG", 1, true) then
+                    gameInfo.isVN = true
+                    gameInfo.region = "Vietnam"
+                end
+                if pkg:find("tw", 1, true) or pkg:find("Garena", 1, true) then
+                    gameInfo.isTW = true
+                    gameInfo.region = "Taiwan"
+                end
+                if pkg:find("flash", 1, true) or pkg:find("Flash", 1, true) then
+                    gameInfo.isFlash = true
+                    gameInfo.region = "Flash"
+                end
+            end
+        end
+    end)
+    
+    return gameInfo
+end
+
+_G.GameCompat.GameInfo = _G.GameCompat.DetectGame()
+
+-- Try multiple paths for a table, return first working one
+_G.GameCompat.LoadTable = function(paths)
+    for _, path in ipairs(paths) do
+        local ok, result = pcall(function() return loadTable(path) end)
+        if ok and type(result) == "table" then
+            return result, path
+        end
+    end
+    return nil, nil
+end
+
+-- Try multiple paths for import
+_G.GameCompat.Import = function(paths)
+    for _, path in ipairs(paths) do
+        local ok, result = pcall(function() return import(path) end)
+        if ok and result ~= nil then
+            return result, path
+        end
+    end
+    return nil, nil
+end
+
+-- ============================================================
+-- STEP 1: MWConfig initialization
 -- ============================================================
 _G.MWConfig = _G.MWConfig or {
     -- Other features (toggles ke liye)
@@ -1231,14 +1311,14 @@ end)()
             panel(10,10,W-20,65,16,gold,4,24,1)
             panel(13,13,W-26,59,14,header,5,32,1)
             if welcome then
-                d.Title=text("WELCOME TO ZAKPUBGSKIN PAK",24,22,W-48,42,19,white,7,true,true)
+                d.Title=text("WELCOME TO PREMIUM PAK",24,22,W-48,42,19,white,7,true,true)
                 local pw=math.min(340,W-72);local px=(W-pw)/2
                 panel(px,99,pw,51,12,gold,4,16)
                 panel(px+3,102,pw-6,45,10,{{179,29,52},{231,73,87},{178,26,47}},5,20)
                 d.Detail=text("NO KILL LIMIT",px+16,109,pw-32,34,23,white,7,true,true)
                 d.Hint=text("PLAY SMART LIKE PRO",30,165,W-60,32,17,forest,7,true,true)
             else
-                d.Title=text("PREMIUM ZAKPUBGSKIN PAK",22,15,W-44,31,24,white,7,true,true)
+                d.Title=text("VIP PREMIUM PAK",22,15,W-44,31,24,white,7,true,true)
                 text("LOGIN PAGE",22,45,W-44,21,12,white,7,true,true)
                 line(W/2-118,56,W/2-47,56,1,color(251,244,228),7)
                 line(W/2+47,56,W/2+118,56,1,color(251,244,228),7)
@@ -1252,7 +1332,20 @@ end)()
                 line(20,138,27,145,2,color(242,219,164),4)
                 line(W-27,145,W-20,138,2,color(242,219,164),4)
                 d.Input=make("EditableTextBox",d.Container)
-                d.Input:SetText(key or "")
+                local displayKey = key or ""
+                local keySaved = (#displayKey > 0)
+                if keySaved then
+                    -- Mask the saved key for security
+                    local masked = ""
+                    for i=1,#displayKey do masked = masked .. "●" end
+                    d.Input:SetText(masked)
+                    d.KeySaved = true
+                    d.OriginalKey = displayKey
+                else
+                    d.Input:SetText("")
+                    d.KeySaved = false
+                    d.OriginalKey = ""
+                end
                 -- Input-specific native style; TextBlock-only methods stay unused.
                 local fg=forest;local bg=color(255,244,216,0)
                 local inputStyle=member(d.Input,"WidgetStyle")
@@ -1286,8 +1379,13 @@ end)()
                 if type(setForeground)=="function" then setForeground(d.Input,fg) end
                 pcall(function() d.Input:SetHintText("Enter your key") end)
                 visibility(d.Input,enums.Visible);add(d.Input,23,107,W-46,35,8,true)
-                d.Hint=text("Your key is saved automatically",22,149,W-44,19,11,burgundy,7,false,false)
-                d.Status=text(status or "Enter your key",22,170,W-44,23,11,burgundy,8,false,false,true)
+                if keySaved then
+                    d.Hint=text("Saved key found. Click Verify to sign in.",22,149,W-44,19,11,burgundy,7,false,false)
+                    d.Status=text(status or "Key saved - verify to continue",22,170,W-44,23,11,burgundy,8,false,false,true)
+                else
+                    d.Hint=text("Enter your license key",22,149,W-44,19,11,burgundy,7,false,false)
+                    d.Status=text(status or "Enter your key",22,170,W-44,23,11,burgundy,8,false,false,true)
+                end
             end
             local button=make("Button",d.Container);d.Button=button
             local by=welcome and 212 or 201;local bh=welcome and 42 or 34
@@ -1296,7 +1394,8 @@ end)()
             panel(bx,by,bw,bh,8,{{0,112,51},{1,149,68},{0,99,46}},5,16)
             pcall(function() button:SetBackgroundColor(color(255,255,255,0)) end)
             visibility(button,enums.Visible)
-            local label=make("TextBlock",button);label:SetText("OK");style(label,17,white,true);visibility(label,passive)
+            local btnText = keySaved and "Verify Saved Key" or "OK"
+            local label=make("TextBlock",button);label:SetText(btnText);style(label,17,white,true);visibility(label,passive)
             local labelSlot=button:AddChild(label)
             pcall(function() labelSlot:SetHorizontalAlignment(2);labelSlot:SetVerticalAlignment(2) end)
             add(button,bx,by,bw,bh,9,true)
@@ -1308,12 +1407,45 @@ end)()
                     local l=_G.LunarLoginRuntime;if l and l.WelcomeUI==d then l.WelcomeUI=nil end
                     return
                 end
-                local okRead,k=pcall(function() return d.Input:GetText() end)
-                if not okRead or type(k)~="string" then return end
-                k=k:match("^%s*(.-)%s*$")
+                local k
+                if d.KeySaved and d.OriginalKey then
+                    k = d.OriginalKey
+                else
+                    local okRead,inputK=pcall(function() return d.Input:GetText() end)
+                    if not okRead or type(inputK)~="string" then return end
+                    k=inputK:match("^%s*(.-)%s*$")
+                end
                 if #k==0 or #k>512 then d.Status:SetText("Enter a valid key");return end
                 if d.Submit then d.Submit(k) end
             end)
+            
+            -- Clear saved key button
+            if keySaved then
+                local clearBtn=make("Button",d.Container)
+                local cbw=150;local cbh=30;local cbx=(W-cbw)/2;local cby=by+bh+10
+                panel(cbx-4,cby-3,cbw+8,cbh+6,9,color(180,60,60),4,16)
+                panel(cbx,cby,cbw,cbh,8,{{0,80,40},{1,100,55},{0,70,35}},5,16)
+                pcall(function() clearBtn:SetBackgroundColor(color(255,255,255,0)) end)
+                visibility(clearBtn,enums.Visible)
+                local clabel=make("TextBlock",clearBtn);clabel:SetText("Clear Saved Key");style(clabel,14,color(255,200,200),true);visibility(clabel,passive)
+                local clabelSlot=clearBtn:AddChild(clabel)
+                pcall(function() clabelSlot:SetHorizontalAlignment(2);clabelSlot:SetVerticalAlignment(2) end)
+                add(clearBtn,cbx,cby,cbw,cbh,9,true)
+                clearBtn.OnClicked:Add(function()
+                    if not d.Visible or d.Busy then return end
+                    d.KeySaved=false;d.OriginalKey=""
+                    d.Input:SetText("")
+                    d.Status:SetText("Key cleared. Enter new key.")
+                    -- Clear saved key from runtime
+                    local l=_G.LunarLoginRuntime
+                    if l then l.Key="";l.AttemptKey="";l.Authorized=false;l.Save() end
+                    -- Hide clear button
+                    visibility(clearBtn,enums.Collapsed)
+                    visibility(button,enums.Visible)
+                    pcall(function() label:SetText("OK") end)
+                end)
+            end
+            
             renderArt()
             local slot=p:AddChildToCanvas(d.Container);slot:SetAutoSize(false);slot:SetSize(vector(W,H));slot:SetZOrder(9200)
             local anchors=slot:GetAnchors();anchors.Minimum=vector(.5,.5);anchors.Maximum=vector(.5,.5)
@@ -1887,7 +2019,7 @@ do
         ExpandHandle="LunarWall",
         GetFunc=function() return featureState().Settings.WallSafeMode end,
         SetFunc=function(c,v) featureState().SetWallSafeMode(value(c,v));return true end}
-    local page={Key="HackMenu",Text="@ZAKPUBGSKIN VIP MENU",UIKey="Setting_Page_Privacy",Category={
+    local page={Key="HackMenu",Text="VIP MENU",UIKey="Setting_Page_Privacy",Category={
         {Key="Lunar_AimBot",Text="AIMBOT",Stack=Aim},
         {Key="Lunar_ESP_V1",Text="ESP V1",Stack=V1},
         {Key="Lunar_ESP_V2",Text="ESP V2",Stack=V2},
@@ -1899,9 +2031,53 @@ do
     local function initialize(state)
         local F = _G.LunarFeatures
         assert(type(F) == "table", "FEATURE_RUNTIME_NOT_READY")
-        local pages = loadTable("client.logic.NewSetting.SettingPageDefine")
-        local catalog = loadTable("client.logic.NewSetting.SettingCatalog")
-        local aliases = loadTable("client.slua.umg.NewSetting.Item.AliasMap")
+        -- Try multiple regional paths for SettingPageDefine
+        local pages, pagesPath = _G.GameCompat.LoadTable({
+            "client.logic.NewSetting.SettingPageDefine",
+            "GameLua.Mod.BaseMod.Client.Config.SettingPageDefine",
+            "GameLua.Mod.D350.Client.Config.SettingPageDefine",
+            "GameLua.Mod.PlanPH.Client.Config.SettingPageDefine",
+            "client.logic.NewSetting.SettingPageDefine_KR",
+            "client.logic.NewSetting.SettingPageDefine_VN",
+            "client.logic.NewSetting.SettingPageDefine_TW",
+            "client.logic.NewSetting.SettingPageDefine_Flash",
+            "client.logic.NewSetting.SettingPageDefine_BGMI"
+        })
+        if not pages then
+            pages = {}
+        end
+
+        -- Try multiple regional paths for SettingCatalog
+        local catalog, catalogPath = _G.GameCompat.LoadTable({
+            "client.logic.NewSetting.SettingCatalog",
+            "GameLua.Mod.BaseMod.Client.Config.SettingCatalog",
+            "GameLua.Mod.D350.Client.Config.SettingCatalog",
+            "GameLua.Mod.PlanPH.Client.Config.SettingCatalog",
+            "client.logic.NewSetting.SettingCatalog_KR",
+            "client.logic.NewSetting.SettingCatalog_VN",
+            "client.logic.NewSetting.SettingCatalog_TW",
+            "client.logic.NewSetting.SettingCatalog_Flash",
+            "client.logic.NewSetting.SettingCatalog_BGMI"
+        })
+        if not catalog then
+            catalog = {}
+        end
+
+        -- Try multiple regional paths for AliasMap
+        local aliases, aliasesPath = _G.GameCompat.LoadTable({
+            "client.slua.umg.NewSetting.Item.AliasMap",
+            "GameLua.Mod.BaseMod.Client.Config.AliasMap",
+            "GameLua.Mod.D350.Client.Config.AliasMap",
+            "GameLua.Mod.PlanPH.Client.Config.AliasMap",
+            "client.slua.umg.NewSetting.Item.AliasMap_KR",
+            "client.slua.umg.NewSetting.Item.AliasMap_VN",
+            "client.slua.umg.NewSetting.Item.AliasMap_TW",
+            "client.slua.umg.NewSetting.Item.AliasMap_Flash",
+            "client.slua.umg.NewSetting.Item.AliasMap_BGMI"
+        })
+        if not aliases then
+            aliases = {Switcher = {}, Slider = {}, CompactSwitcher = {}}
+        end
         restoreAliases(state, aliases)
         assert(type(aliases.Switcher) == "table", "AliasMap.Switcher_not_ready")
 
