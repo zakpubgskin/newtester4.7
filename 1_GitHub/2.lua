@@ -1847,35 +1847,34 @@ do
     Aim[#Aim+1]={Key="LunarAimSniper",UI=AliasMap.Switcher,Text="Sniper Scope Aim (head lock, no fire)",
         GetFunc=function() return featureState().Settings.AimSniperScope end,
         SetFunc=function(c,v) featureState().SetAimSniperScope(value(c,v));return true end}
+    if sliderReady then
+        Aim[#Aim+1]=rangeItem("LunarAimScopePred","Scope Aim Prediction (0=off)",0,100,"LunarAim",
+            function() return featureState().Settings.AimScopePred end,"SetAimScopePred")
+    end
 
-    -- --- Shotgun Aim (toggle, hipfire, no scope) ---
-    Aim[#Aim+1]={Key="LunarAimShotgun",UI=AliasMap.Switcher,Text="Shotgun Aim (hipfire, no scope)",
+    -- --- Shotgun Aim (expandable master - manual shotgun tuning) ---
+    Aim[#Aim+1]={Key="LunarAimShotgun",UI=AliasMap.Switcher,Text="Shotgun Aim (manual - tap to expand)",
+        ExpandIndex=0,EventType=F.AimSettingsEventType,EventID=F.AimSettingsEventID,
         GetFunc=function() return featureState().Settings.AimShotgun end,
         SetFunc=function(c,v) featureState().SetAimShotgun(value(c,v));return true end}
-
-    -- --- Manual Aim (independent secondary aimbot) ---
-    Aim[#Aim+1]={Key="LunarManualAim",UI=AliasMap.Switcher,Text="Manual Aim (Master)",
-        ExpandIndex=0,EventType=F.AimSettingsEventType,EventID=F.AimSettingsEventID,
-        GetFunc=function() return featureState().Settings.ManualAimEnabled end,
-        SetFunc=function(c,v) featureState().SetManualAim(value(c,v));return true end}
     if sliderReady then
-        Aim[#Aim+1]=rangeItem("LunarManualAimSpeed","Manual Aim Speed",100,120,"LunarManualAim",
+        Aim[#Aim+1]=rangeItem("LunarManualAimSpeed","Shotgun Aim Speed",100,120,"LunarAimShotgun",
             function() return featureState().Settings.ManualAimSpeed end,"SetManualAimSpeed")
-        Aim[#Aim+1]=rangeItem("LunarManualAimFOV","Manual Aim FOV",10,100,"LunarManualAim",
+        Aim[#Aim+1]=rangeItem("LunarManualAimFOV","Shotgun Aim FOV",10,100,"LunarAimShotgun",
             function() return featureState().Settings.ManualAimFOV end,"SetManualAimFOV")
-        Aim[#Aim+1]=rangeItem("LunarManualAimDist","Manual Aim Distance (m)",50,400,"LunarManualAim",
+        Aim[#Aim+1]=rangeItem("LunarManualAimDist","Shotgun Aim Distance (m)",50,400,"LunarAimShotgun",
             function() return featureState().Settings.ManualAimDist end,"SetManualAimDist")
     end
-    Aim[#Aim+1]={Key="LunarManualAimTarget",UI=AliasMap.Switcher,Text="Manual Aim Target (Head/Body/Leg)",
-        ExpandHandle="LunarManualAim",SwitcherText={"Head","Body","Leg"},SwitcherValue={1,2,3},
+    Aim[#Aim+1]={Key="LunarManualAimTarget",UI=AliasMap.Switcher,Text="Shotgun Aim Target (Head/Body/Leg)",
+        ExpandHandle="LunarAimShotgun",SwitcherText={"Head","Body","Leg"},SwitcherValue={1,2,3},
         GetFunc=function() return featureState().Settings.ManualAimTarget end,
         SetFunc=function(c,v) featureState().SetManualAimTarget(value(c,v));return true end}
-    Aim[#Aim+1]={Key="LunarManualAimBot",UI=AliasMap.Switcher,Text="Manual Ignore Bots (real players)",
-        ExpandHandle="LunarManualAim",
+    Aim[#Aim+1]={Key="LunarManualAimBot",UI=AliasMap.Switcher,Text="Shotgun Ignore Bots (real players)",
+        ExpandHandle="LunarAimShotgun",
         GetFunc=function() return featureState().Settings.ManualAimIgBot end,
         SetFunc=function(c,v) featureState().SetManualAimIgBot(value(c,v));return true end}
-    Aim[#Aim+1]={Key="LunarManualAimWall",UI=AliasMap.Switcher,Text="Manual Wall Check (visible only)",
-        ExpandHandle="LunarManualAim",
+    Aim[#Aim+1]={Key="LunarManualAimWall",UI=AliasMap.Switcher,Text="Shotgun Wall Check (visible only)",
+        ExpandHandle="LunarAimShotgun",
         GetFunc=function() return featureState().Settings.ManualAimVisCheck end,
         SetFunc=function(c,v) featureState().SetManualAimVisCheck(value(c,v));return true end}
 
@@ -4885,6 +4884,8 @@ do
     -- V9.3 additions: fine-grained Aimbot V1 and ESP controls.
     settings.AimFOV=number(settings.AimFOV,10,100,30)
     settings.AimDist=number(settings.AimDist,50,400,120)
+    -- Scope/Sniper aim prediction (0 = off). Leads moving targets.
+    settings.AimScopePred=number(settings.AimScopePred,0,100,0)
     settings.KickControl=settings.KickControl==true
     settings.KickAmount=number(settings.KickAmount,0,100,100)
     settings.AimVisCheck=settings.AimVisCheck~=false
@@ -4896,7 +4897,6 @@ do
     settings.AimSniperScope=settings.AimSniperScope==true
     settings.AimShotgun=settings.AimShotgun==true
     -- Manual Aim: independent secondary aimbot with its own knobs.
-    settings.ManualAimEnabled=settings.ManualAimEnabled==true
     settings.ManualAimSpeed=number(settings.ManualAimSpeed,100,120,100)
     settings.ManualAimFOV=number(settings.ManualAimFOV,10,100,30)
     settings.ManualAimDist=number(settings.ManualAimDist,50,400,120)
@@ -4931,11 +4931,11 @@ do
                         local val=payload:match("%f[%w_]"..key.."%s*=%s*([%d%.%-]+)")
                         if val then settings[key]=number(val,1,7,settings[key]) end
                     end
-                    for _,key in ipairs({"AimFOV","AimDist","EspRange","EspMaxTargets"}) do
+                    for _,key in ipairs({"AimFOV","AimDist","EspRange","EspMaxTargets","AimScopePred"}) do
                         local val=payload:match("%f[%w_]"..key.."%s*=%s*([%d%.%-]+)")
                         if val then
-                            local lo=(key=="AimFOV" and 10) or (key=="AimDist" and 50) or (key=="EspMaxTargets" and 5) or 400
-                            local hi=(key=="AimFOV" and 100) or (key=="AimDist" and 400) or (key=="EspMaxTargets" and 64) or 1000
+                            local lo=(key=="AimFOV" and 10) or (key=="AimDist" and 50) or (key=="EspMaxTargets" and 5) or (key=="AimScopePred" and 0) or 400
+                            local hi=(key=="AimFOV" and 100) or (key=="AimDist" and 400) or (key=="EspMaxTargets" and 64) or (key=="AimScopePred" and 100) or 1000
                             settings[key]=number(val,lo,hi,settings[key])
                         end
                     end
@@ -4952,7 +4952,7 @@ do
                         if val=="true" or val=="false" then settings[key]=val=="true" end
                     end
                     -- Manual Aim persistence
-                    for _,key in ipairs({"ManualAimEnabled","ManualAimIgBot","ManualAimVisCheck"}) do
+                    for _,key in ipairs({"ManualAimIgBot","ManualAimVisCheck"}) do
                         local val=payload:match("%f[%w_]"..key.."%s*=%s*(%a+)")
                         if val=="true" or val=="false" then settings[key]=val=="true" end
                     end
@@ -4999,8 +4999,8 @@ do
     F.Save=function(force)
         if not F.Dirty or not io or not io.open then return end
         local lines={"return {", "  IpadEnabled = "..tostring(_G.MWConfig.IpadView==true)..","}
-        for _,key in ipairs({"AimEnabled","WallEnabled","Aim2Enabled","MortarEnabled","IpadFOV","AimSpeed","AimTarget","WallVisible","WallOccluded","AimFOV","AimDist","EspRange","EspMaxTargets","KickAmount","ManualAimSpeed","ManualAimFOV","ManualAimDist","ManualAimTarget"}) do lines[#lines+1]="  "..key.." = "..tostring(settings[key]).."," end
-        for _,key in ipairs({"AimVisCheck","AimIgKnock","AimIgBot","AimSniperScope","AimShotgun","WallSafeMode","KickControl","ManualAimEnabled","ManualAimIgBot","ManualAimVisCheck"}) do lines[#lines+1]="  "..key.." = "..tostring(settings[key]==true).."," end
+        for _,key in ipairs({"AimEnabled","WallEnabled","Aim2Enabled","MortarEnabled","IpadFOV","AimSpeed","AimTarget","WallVisible","WallOccluded","AimFOV","AimDist","EspRange","EspMaxTargets","KickAmount","AimScopePred","ManualAimSpeed","ManualAimFOV","ManualAimDist","ManualAimTarget"}) do lines[#lines+1]="  "..key.." = "..tostring(settings[key]).."," end
+        for _,key in ipairs({"AimVisCheck","AimIgKnock","AimIgBot","AimSniperScope","AimShotgun","WallSafeMode","KickControl","ManualAimIgBot","ManualAimVisCheck"}) do lines[#lines+1]="  "..key.." = "..tostring(settings[key]==true).."," end
         for _,key in ipairs({"Name","Line","Health","Distance","EnemyCounter"}) do lines[#lines+1]="  V1_"..key.." = "..tostring(_G.g_Botmater_ESPOptions[key]==true).."," end
         for _,key in ipairs({"Name","Line","Box","Health","Distance","Skeleton","Counter"}) do lines[#lines+1]="  V2_"..key.." = "..tostring(_G.g_vipserver_ESPOptions[key]==true).."," end
         lines[#lines+1]="}"
@@ -5074,6 +5074,16 @@ do
         F.AimLastClock=nil;F.AimDue=0
         F.MarkDirty(true)
     end
+    F.SetAimScopePred=function(value)
+        settings.AimScopePred=number(value,0,100,0)
+        local data=_G.XthrlenState and _G.XthrlenState.CustomTextData
+        if data then
+            data.AimTouchScopePred=settings.AimScopePred
+            data.AimTouchSniperPred=settings.AimScopePred
+        end
+        F.AimLastClock=nil;F.AimDue=0
+        F.MarkDirty(true)
+    end
     F.SetAimVisCheck=function(enabled)
         settings.AimVisCheck=enabled==true or enabled==1
         local cfg=_G.XthrlenConfig
@@ -5104,34 +5114,21 @@ do
         end
         F.MarkDirty(true)
     end
-    -- Manual Aim: when active, its own knobs are pushed onto the engine aim
-    -- config (the same fields the aim loop reads). Turning it off restores the
-    -- main Aimbot V1 values so the two modes never fight over the knobs.
-    local function manualValue(field,manual,main)
-        return settings.ManualAimEnabled and manual or main
-    end
+    -- Shotgun manual tuning: when Shotgun Aim is active, its own knobs are
+    -- pushed onto the engine SG aim fields the aim loop reads. Turning it off
+    -- restores the default shotgun values so the other modes stay untouched.
     F.ApplyManualAim=function()
         local cfg=_G.XthrlenConfig
         local data=_G.XthrlenState and _G.XthrlenState.CustomTextData
+        local on=settings.AimShotgun
         if cfg then
-            cfg.AimTouchEnable=manualValue("enable",true,settings.AimEnabled)
-            cfg.AimTouchHipVisCheck=manualValue("vis",settings.ManualAimVisCheck,settings.AimVisCheck)
-            cfg.AimTouchScopeVisCheck=manualValue("vis",settings.ManualAimVisCheck,settings.AimVisCheck)
-            cfg.AimTouchSniperVisCheck=manualValue("vis",settings.ManualAimVisCheck,settings.AimVisCheck)
-            cfg.AimTouchHipIgBot=manualValue("bot",settings.ManualAimIgBot,settings.AimIgBot)
-            cfg.AimTouchScopeIgBot=manualValue("bot",settings.ManualAimIgBot,settings.AimIgBot)
-            cfg.AimTouchSniperIgBot=manualValue("bot",settings.ManualAimIgBot,settings.AimIgBot)
+            cfg.AimTouchSGVisCheck = on and settings.ManualAimVisCheck or settings.AimVisCheck
+            cfg.AimTouchSGIgBot    = on and settings.ManualAimIgBot or settings.AimIgBot
         end
         if data then
-            data.AimTouchHipSpeed=manualValue("speed",settings.ManualAimSpeed,settings.AimSpeed)
-            data.AimTouchScopeSpeed=manualValue("speed",settings.ManualAimSpeed,settings.AimSpeed)
-            data.AimTouchSniperSpeed=manualValue("speed",settings.ManualAimSpeed,settings.AimSpeed)
-            data.AimTouchHipDist=manualValue("dist",settings.ManualAimDist,settings.AimDist)
-            data.AimTouchScopeDist=manualValue("dist",settings.ManualAimDist,settings.AimDist)
-            data.AimTouchSniperDist=manualValue("dist",settings.ManualAimDist,settings.AimDist)
-            data.AimTouchHipFOV=manualValue("fov",settings.ManualAimFOV,settings.AimFOV)
-            data.AimTouchScopeFOV=manualValue("fov",settings.ManualAimFOV,settings.AimFOV)
-            data.AimTouchSniperFOV=manualValue("fov",settings.ManualAimFOV,settings.AimFOV)
+            data.AimTouchSGSpeed = on and settings.ManualAimSpeed or settings.AimSpeed
+            data.AimTouchSGFOV   = on and settings.ManualAimFOV or math.max(40,settings.AimFOV)
+            data.AimTouchSGDist  = on and settings.ManualAimDist or 30
         end
         F.AimLastClock=nil;F.AimDue=0
     end
@@ -5140,7 +5137,6 @@ do
         if F.Wake then F.Wake() end
         return true
     end
-    F.SetManualAim=function(enabled) settings.ManualAimEnabled=enabled==true or enabled==1;return manualDirty() end
     F.SetManualAimSpeed=function(value) settings.ManualAimSpeed=number(value,100,120,100);return manualDirty() end
     F.SetManualAimFOV=function(value) settings.ManualAimFOV=number(value,10,100,30);return manualDirty() end
     F.SetManualAimDist=function(value) settings.ManualAimDist=number(value,50,400,120);return manualDirty() end
@@ -5188,6 +5184,7 @@ do
         if data then
             data.AimTouchSGCond=2
         end
+        if type(F.ApplyManualAim)=="function" then F.ApplyManualAim() end
         F.AimLastClock=nil;F.AimDue=0
         F.MarkDirty(true)
         if F.Wake then F.Wake() end
@@ -5201,7 +5198,7 @@ do
         local changed=settings.AimEnabled~=(mode==1) or settings.Aim2Enabled~=(mode==2)
         settings.AimEnabled=mode==1
         settings.Aim2Enabled=mode==2
-        _G.XthrlenConfig.AimTouchEnable=settings.ManualAimEnabled or settings.AimEnabled
+        _G.XthrlenConfig.AimTouchEnable=settings.AimEnabled
         if not settings.AimEnabled then
             _G.XthrlenState.offPitch=0;_G.XthrlenState.offYaw=0;F.AimLastClock=nil
         end
@@ -5414,20 +5411,20 @@ _G.XthrlenState.CustomTextData.AimTouchScopeCond   = 1
 _G.XthrlenState.CustomTextData.AimTouchScopeSpeed  = _G.LunarFeatures.Settings.AimSpeed
 _G.XthrlenState.CustomTextData.AimTouchScopeDist   = _G.LunarFeatures.Settings.AimDist
 _G.XthrlenState.CustomTextData.AimTouchScopeFOV    = _G.LunarFeatures.Settings.AimFOV
-_G.XthrlenState.CustomTextData.AimTouchScopePred   = 0
+_G.XthrlenState.CustomTextData.AimTouchScopePred   = _G.LunarFeatures.Settings.AimScopePred
 
 _G.XthrlenState.CustomTextData.AimTouchSniperDist   = _G.LunarFeatures.Settings.AimDist
 _G.XthrlenState.CustomTextData.AimTouchSniperFOV    = _G.LunarFeatures.Settings.AimFOV
 _G.XthrlenState.CustomTextData.AimTouchSniperSpeed  = _G.LunarFeatures.Settings.AimSpeed
-_G.XthrlenState.CustomTextData.AimTouchSniperPred   = 0
+_G.XthrlenState.CustomTextData.AimTouchSniperPred   = _G.LunarFeatures.Settings.AimScopePred
 
 _G.XthrlenState.CustomTextData.AimTouchSGCond   = 2
 _G.XthrlenState.CustomTextData.AimTouchSGSpeed  = _G.LunarFeatures.Settings.AimSpeed
 _G.XthrlenState.CustomTextData.AimTouchSGFOV    = math.max(40,_G.LunarFeatures.Settings.AimFOV)
 _G.XthrlenState.CustomTextData.AimTouchSGDist   = 30
 
--- V9.9: saved manual scope values (ya global defaults) apply karo.
-if _G.LunarFeatures.Settings.ManualAimEnabled
+-- V9.9: saved shotgun manual values (ya global defaults) apply karo.
+if _G.LunarFeatures.Settings.AimShotgun
     and type(_G.LunarFeatures.ApplyManualAim)=="function" then
     pcall(_G.LunarFeatures.ApplyManualAim)
 end
@@ -5480,7 +5477,7 @@ end
 _G.AimTouch = function()
     local ok,err=pcall(function()
         local aimSettings=_G.LunarFeatures.Settings
-        if not (_G.XthrlenConfig.AimTouchEnable or aimSettings.AimSniperScope==true or aimSettings.AimShotgun==true or aimSettings.ManualAimEnabled) then return end
+        if not (_G.XthrlenConfig.AimTouchEnable or aimSettings.AimSniperScope==true or aimSettings.AimShotgun==true) then return end
         
         local player = GameplayData.GetPlayerCharacter()
         if not (slua and slua.isValid and slua.isValid(player)) then return end
@@ -5694,7 +5691,7 @@ _G.AimTouch = function()
         local bestScore = 99999999 
         
         local selected=_G.LunarFeatures.Settings.AimTarget
-        if aimSettings.ManualAimEnabled then selected=aimSettings.ManualAimTarget end
+        if aimSettings.AimShotgun and isShotgun then selected=aimSettings.ManualAimTarget end
         if sniperIdle then selected=1 end -- scope aim always locks the head
         boneIdx=selected==2 and 2 or (selected==3 and 5 or 1)
         local selBoneName=selected==2 and "spine_03" or (selected==3 and "calf_l" or "head")
