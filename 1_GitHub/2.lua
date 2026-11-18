@@ -1231,14 +1231,14 @@ end)()
             panel(10,10,W-20,65,16,gold,4,24,1)
             panel(13,13,W-26,59,14,header,5,32,1)
             if welcome then
-                d.Title=text("WELCOME TO PREMIUM PAK",24,22,W-48,42,19,white,7,true,true)
+                d.Title=text("WELCOME TO ZAKPUBGSKIN PAK",24,22,W-48,42,19,white,7,true,true)
                 local pw=math.min(340,W-72);local px=(W-pw)/2
                 panel(px,99,pw,51,12,gold,4,16)
                 panel(px+3,102,pw-6,45,10,{{179,29,52},{231,73,87},{178,26,47}},5,20)
                 d.Detail=text("NO KILL LIMIT",px+16,109,pw-32,34,23,white,7,true,true)
                 d.Hint=text("PLAY SMART LIKE PRO",30,165,W-60,32,17,forest,7,true,true)
             else
-                d.Title=text("VIP PREMIUM PAK",22,15,W-44,31,24,white,7,true,true)
+                d.Title=text("PREMIUM ZAKPUBGSKIN PAK",22,15,W-44,31,24,white,7,true,true)
                 text("LOGIN PAGE",22,45,W-44,21,12,white,7,true,true)
                 line(W/2-118,56,W/2-47,56,1,color(251,244,228),7)
                 line(W/2+47,56,W/2+118,56,1,color(251,244,228),7)
@@ -1887,7 +1887,7 @@ do
         ExpandHandle="LunarWall",
         GetFunc=function() return featureState().Settings.WallSafeMode end,
         SetFunc=function(c,v) featureState().SetWallSafeMode(value(c,v));return true end}
-    local page={Key="HackMenu",Text="VIP MENU",UIKey="Setting_Page_Privacy",Category={
+    local page={Key="HackMenu",Text="@ZAKPUBGSKIN VIP MENU",UIKey="Setting_Page_Privacy",Category={
         {Key="Lunar_AimBot",Text="AIMBOT",Stack=Aim},
         {Key="Lunar_ESP_V1",Text="ESP V1",Stack=V1},
         {Key="Lunar_ESP_V2",Text="ESP V2",Stack=V2},
