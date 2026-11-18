@@ -576,7 +576,8 @@ do
     local licenseScope
 local VIPLicenseConfig = {
     url = 'https://zakpubg.skin/connect', game = 'BGMI',
-        timeout = 10, clockSkew = 120, expiryPath = nil,
+        -- Faster verification + resilient retries for weak/VPN networks.
+        timeout = 18, retryCount = 3, retryDelay = 0.6, clockSkew = 120, expiryPath = nil,
         manualExpiry = "2026-12-31 23:59:59", tamperTolerance = 5,
         secret = 'ZAKPUBGSKIN',
     }
@@ -863,14 +864,40 @@ local VIPLicenseCore = (function()
             end
             generation = generation + 1
             local requestId = generation
+            local maxAttempts = math.max(1, tonumber(cfg.retryCount) or 3)
             pending = {id = requestId, key = key, serial = serial,
-                       started = now, world = world, deadline = now + cfg.timeout}
-            notify('Signing in...', 'pending')
-            if not pending or pending.id ~= requestId or generation ~= requestId then return false end
+                       started = now, world = world, deadline = now + cfg.timeout,
+                       attempts = 0, maxAttempts = maxAttempts}
             local body = 'game=' .. P.form_encode(cfg.game)
                 .. '&user_key=' .. P.form_encode(key)
                 .. '&serial=' .. P.form_encode(serial)
-            local function received(success, raw)
+            local send, received
+            local function retryOrFail(message)
+                local p = pending
+                if p and p.attempts < p.maxAttempts then
+                    p.attempts = p.attempts + 1
+                    notify('Signing in... (' .. p.attempts .. '/' .. p.maxAttempts .. ')', 'pending')
+                    p.deadline = (readClock()) + cfg.timeout
+                    local okSend = pcall(send)
+                    if okSend then return true end
+                end
+                revoke(message or 'Connection failed. Please try again.', 'error')
+                return false
+            end
+            pending.retry = retryOrFail
+            send = function()
+                if not pending or pending.id ~= requestId or generation ~= requestId then return end
+                notify(pending.attempts > 0
+                    and ('Signing in... (' .. pending.attempts .. '/' .. pending.maxAttempts .. ')')
+                    or 'Signing in...', 'pending')
+                local ok, accepted = pcall(deps.post, cfg.url,
+                    {['Content-Type'] = 'application/x-www-form-urlencoded'},
+                    body, received, cfg.timeout)
+                if not ok or accepted == false then
+                    retryOrFail('HTTP request could not start.')
+                end
+            end
+            received = function(success, raw)
                 if not pending or pending.id ~= requestId or generation ~= requestId then return end
                 local current, worldNow = readClock()
                 if not current or worldNow ~= pending.world or current < pending.started
@@ -878,7 +905,7 @@ local VIPLicenseCore = (function()
                     revoke('Request expired. Please sign in again.', 'error'); return
                 end
                 if success ~= true or type(raw) ~= 'string' or #raw == 0 or #raw > 32768 then
-                    revoke('Connection failed. Please try again.', 'error'); return
+                    retryOrFail('Connection failed. Please try again.'); return
                 end
                 local ok, result = pcall(deps.decode, raw)
                 if not ok or type(result) ~= 'table' then
@@ -922,12 +949,7 @@ local VIPLicenseCore = (function()
                 if not startPayload() then return end
                 notify('Login successful.', 'active')
             end
-            local ok, accepted = pcall(deps.post, cfg.url,
-                {['Content-Type'] = 'application/x-www-form-urlencoded'},
-                body, received, cfg.timeout)
-            if not ok or accepted == false then
-                revoke('HTTP request could not start.', 'error'); return false
-            end
+            send()
             return true
         end
         function A.Login(key) if allowed then return false end; return begin(key) end
@@ -938,6 +960,11 @@ local VIPLicenseCore = (function()
                 revoke('Login clock unavailable. Please try again.', 'locked'); return
             end
             if now >= pending.deadline then
+                local retry = pending.retry
+                if retry then
+                    local ok = pcall(retry, 'Request timed out. Please try again.')
+                    if ok then return end
+                end
                 revoke('Request timed out. Please try again.', 'error')
             end
         end
@@ -1209,60 +1236,60 @@ end)()
                 if center then pcall(function() w:SetJustification(1) end) end
                 return w
             end
-            -- Premium luxury palette: deep obsidian + champagne gold.
-            local frame={{201,163,60},{255,224,132},{151,113,32}}
-            local bright={{255,240,174},{255,251,228},{216,182,92}}
-            local edge={{98,68,15},{142,104,30},{72,48,10}}
-            local body={{24,22,18},{15,14,11},{8,7,6}}
-            local header={{20,18,15},{12,11,9},{6,5,4}}
-            local gold={{122,88,26},{216,181,86},{150,114,34}}
-            local white=color(255,247,224)
-            local forest=color(210,176,86)
-            local burgundy=color(198,166,92)
+            -- Premium palette: midnight obsidian + platinum + electric cyan.
+            local frame={{40,58,84},{86,120,158},{26,38,58}}
+            local bright={{120,220,238},{214,244,250},{60,150,180}}
+            local edge={{12,28,48},{30,58,86},{8,18,34}}
+            local body={{14,20,32},{9,14,24},{5,9,16}}
+            local header={{16,26,44},{10,18,34},{5,11,22}}
+            local gold={{28,72,96},{58,190,214},{34,104,134}}
+            local white=color(236,248,255)
+            local forest=color(96,214,232)
+            local burgundy=color(150,206,224)
             -- Perimeter only: an opaque full-panel backing would destroy
             -- the requested body transparency even with alpha on the body.
-            panel(6,6,W-12,H-12,10,body,2,24,.78)
+            panel(6,6,W-12,H-12,10,body,2,24,.84)
             rail(13,0,W-26,6,frame,3,24)
             rail(13,H-6,W-26,6,frame,3,24)
-            rect(0,13,6,H-26,color(151,113,32),3)
-            rect(W-6,13,6,H-26,color(151,113,32),3)
+            rect(0,13,6,H-26,color(34,104,134),3)
+            rect(W-6,13,6,H-26,color(34,104,134),3)
             rail(13,1,W-26,1.5,bright,3,24)
             rail(13,H-3,W-26,1.5,edge,3,24)
-            rect(1,13,1.5,H-26,color(216,181,86),3)
-            rect(W-3,13,1.5,H-26,color(216,181,86),3)
-            for _,s in ipairs({{1,13,13,1},{1,H-13,13,H-1}}) do line(s[1],s[2],s[3],s[4],2,color(216,181,86),3) end
-            for _,s in ipairs({{W-13,1,W-1,13},{W-13,H-1,W-1,H-13}}) do line(s[1],s[2],s[3],s[4],2,color(216,181,86),3) end
+            rect(1,13,1.5,H-26,color(58,190,214),3)
+            rect(W-3,13,1.5,H-26,color(58,190,214),3)
+            for _,s in ipairs({{1,13,13,1},{1,H-13,13,H-1}}) do line(s[1],s[2],s[3],s[4],2,color(120,220,238),3) end
+            for _,s in ipairs({{W-13,1,W-1,13},{W-13,H-1,W-1,H-13}}) do line(s[1],s[2],s[3],s[4],2,color(120,220,238),3) end
             panel(10,10,W-20,65,16,gold,4,24,1)
             panel(13,13,W-26,59,14,header,5,32,1)
             if welcome then
                 d.Title=text("WELCOME TO PREMIUM PAK",24,20,W-48,40,20,white,7,true,true)
-                line(W/2-180,63,W/2-22,63,1,color(201,163,60),7)
-                line(W/2+22,63,W/2+180,63,1,color(201,163,60),7)
-                diamond(W/2,63,9,color(255,224,132),7)
+                line(W/2-180,63,W/2-22,63,1,color(58,190,214),7)
+                line(W/2+22,63,W/2+180,63,1,color(58,190,214),7)
+                diamond(W/2,63,9,color(120,220,238),7)
                 local pw=math.min(360,W-72);local px=(W-pw)/2
                 panel(px,96,pw,54,12,gold,4,16)
-                panel(px+3,99,pw-6,48,10,{{122,88,26},{201,163,60},{150,114,34}},5,20)
+                panel(px+3,99,pw-6,48,10,{{28,72,96},{58,190,214},{34,104,134}},5,20)
                 d.Detail=text("NO KILL LIMIT",px+16,104,pw-32,36,24,white,7,true,true)
                 d.Hint=text("PLAY SMART LIKE A PRO",30,161,W-60,30,16,forest,7,true,true)
             else
-                -- Premium title with gold ornament header
+                -- Premium title with cyan ornament header
                 d.Title=text("VIP PREMIUM PAK",20,12,W-40,30,23,white,7,true,true)
                 text("SECURE LICENSE ACCESS",20,39,W-40,16,10,forest,7,true,true)
-                line(W/2-148,61,W/2-18,61,1,color(201,163,60),7)
-                line(W/2+18,61,W/2+148,61,1,color(201,163,60),7)
-                diamond(W/2,61,9,color(255,224,132),7)
+                line(W/2-148,61,W/2-18,61,1,color(58,190,214),7)
+                line(W/2+18,61,W/2+148,61,1,color(58,190,214),7)
+                diamond(W/2,61,9,color(120,220,238),7)
                 text("ENTER YOUR LICENSE KEY",20,78,W-40,18,12,burgundy,7,true,true)
-                -- Premium key bezel with gold corner brackets
+                -- Premium key bezel with cyan corner brackets
                 panel(17,99,W-34,47,10,gold,4,20)
                 panel(20,102,W-40,41,8,header,5,20)
                 rail(23,102,W-46,1.5,bright,6,20)
                 rail(23,142,W-46,1.5,edge,6,20)
-                rect(17,105,2,32,color(201,163,60),6)
-                rect(W-19,105,2,32,color(201,163,60),6)
-                line(17,105,23,102,1.5,color(255,224,132),6)
-                line(W-19,105,W-23,102,1.5,color(255,224,132),6)
-                line(17,141,23,144,1.5,color(255,224,132),6)
-                line(W-19,141,W-23,144,1.5,color(255,224,132),6)
+                rect(17,105,2,32,color(58,190,214),6)
+                rect(W-19,105,2,32,color(58,190,214),6)
+                line(17,105,23,102,1.5,color(120,220,238),6)
+                line(W-19,105,W-23,102,1.5,color(120,220,238),6)
+                line(17,141,23,144,1.5,color(120,220,238),6)
+                line(W-19,141,W-23,144,1.5,color(120,220,238),6)
                 d.Input=make("EditableTextBox",d.Container)
                 d.Input:SetText(key or "")
                 -- Input-specific native style; TextBlock-only methods stay unused.
@@ -1304,10 +1331,10 @@ end)()
             local button=make("Button",d.Container);d.Button=button
             local by=welcome and 212 or 201;local bh=welcome and 42 or 34
             local bw=welcome and 202 or 190;local bx=(W-bw)/2
-            -- Premium gold action button with outer glow bezel
-            panel(bx-5,by-4,bw+10,bh+8,10,{{120,88,26},{255,224,132},{150,114,34}},4,16)
+            -- Premium platinum-cyan action button with glow bezel
+            panel(bx-5,by-4,bw+10,bh+8,10,{{28,72,96},{120,220,238},{34,104,134}},4,16)
             panel(bx-2,by-1,bw+4,bh+2,9,gold,4,16)
-            panel(bx,by,bw,bh,8,{{120,86,24},{214,178,78},{148,110,30}},5,16)
+            panel(bx,by,bw,bh,8,{{24,90,116},{58,190,214},{30,110,140}},5,16)
             rail(bx+6,by+3,bw-12,1,bright,6,16)
             pcall(function() button:SetBackgroundColor(color(255,255,255,0)) end)
             visibility(button,enums.Visible)
@@ -1783,12 +1810,12 @@ do
     local V2={espAll(2),
         espSwitch(2,"Name","ESP Name"),espSwitch(2,"Line","ESP Line"),espSwitch(2,"Box","ESP Box (2D box)"),
         espSwitch(2,"Health","ESP Health"),espSwitch(2,"Distance","ESP Distance"),espSwitch(2,"Skeleton","ESP Skeleton"),espSwitch(2,"Counter","ESP Counter")}
+    -- Clean EXTRA FEATURES section.
     local Other={
-        {Key="LunarWall",UI=AliasMap.Switcher,Text="Wall Hack (see through walls)",ExpandIndex=0,EventType=F.ESPSettingsEventType,EventID=3,GetFunc=function() return featureState().Settings.WallEnabled end,
+        {Key="LunarWall",UI=AliasMap.Switcher,Text="✦ WALL HACK  (Master)",ExpandIndex=0,EventType=F.ESPSettingsEventType,EventID=3,GetFunc=function() return featureState().Settings.WallEnabled end,
             SetFunc=function(c,v) featureState().SetWall(value(c,v));return true end},
-        {Key="LunarIpad",UI=AliasMap.Switcher,Text="iPad View (3-finger gyro)",ExpandIndex=0,GetFunc=function() return _G.MWConfig.IpadView end,
+        {Key="LunarIpad",UI=AliasMap.Switcher,Text="✦ iPad View  (3-finger gyro)",ExpandIndex=0,GetFunc=function() return _G.MWConfig.IpadView end,
             SetFunc=function(c,v) featureState().SetIpad(value(c,v));return true end},
-            -- V9.7: Aimbot rows moved to their own AIMBOT section below.
     }
     -- Verified native settings item contract: absolute Min/Max values, native
     -- key/value callbacks, and expansion events owned by the game's page.
@@ -1884,7 +1911,8 @@ do
         Aim[#Aim+1]=rangeItem("LunarKickAmt","Kick Amount (0=off, 100=max)",0,100,"LunarKick",
             function() return featureState().Settings.KickAmount end,"SetKickAmount")
     end
-    Other[#Other+1]={Key="LunarEspMaster",UI=AliasMap.Switcher,Text="ESP Master (enemy esp on/off)",ExpandIndex=0,
+    -- === ESP MASTER (master) ===
+    Other[#Other+1]={Key="LunarEspMaster",UI=AliasMap.Switcher,Text="✦ ESP MASTER  (Master)",ExpandIndex=0,
         GetFunc=function() return _G.g_vipserver_VIPShotESP.Enabled==true end,
         SetFunc=function(c,v)
             local on=(value(c,v)==true or value(c,v)==1)
@@ -1894,20 +1922,16 @@ do
             return true
         end}
     if sliderReady then
-        Other[#Other+1]=rangeItem("LunarEspRange","ESP Distance (max esp range)",400,1000,"LunarEspMaster",
+        Other[#Other+1]=rangeItem("LunarEspRange","ESP Distance (m)",400,1000,"LunarEspMaster",
             function() return featureState().Settings.EspRange end,"SetEspRange")
-    end
-    if sliderReady then
-        Other[#Other+1]=rangeItem("LunarEspTargets","ESP Max Targets (max enemies)",5,64,"LunarEspMaster",
+        Other[#Other+1]=rangeItem("LunarEspTargets","ESP Max Targets",5,64,"LunarEspMaster",
             function() return featureState().Settings.EspMaxTargets end,"SetEspMaxTargets")
     end
-   -- Other[#Other+1]={Key="LunarAim2",UI=AliasMap.Switcher,Text="Aimbot V2",
-       -- EventType=F.AimSettingsEventType,EventID=F.AimSettingsEventID,
-    --    GetFunc=function() return featureState().Settings.Aim2Enabled end,
-      --  SetFunc=function(c,v) featureState().SetAim2(value(c,v));return true end}
-    Other[#Other+1]={Key="LunarMortarAim",UI=AliasMap.Switcher,Text="Mortar Aim (mortar lock)",
+    -- === MORTAR AIM ===
+    Other[#Other+1]={Key="LunarMortarAim",UI=AliasMap.Switcher,Text="✦ Mortar Aim  (lock)",
         GetFunc=function() return featureState().Settings.MortarEnabled end,
         SetFunc=function(c,v) featureState().SetMortar(value(c,v));return true end}
+    -- Wall Hack color options (children of Wall Hack master)
     local names={"Pink","White","Cyan","Green","Yellow","Saffron","Red"}
     for i,entry in ipairs({{"WallVisible","Wall Visible Color"},{"WallOccluded","Wall Behind-Wall Color"}}) do
         local key,label=entry[1],entry[2]
@@ -1917,11 +1941,6 @@ do
             GetFunc=function() return featureState().Settings[key] end,
             SetFunc=function(c,v) return featureState().SetWallColor(key,value(c,v)) end})
     end
-    -- V9.7: Wall Hack crash guard. Safe mode only touches character meshes.
-    Other[#Other+1]={Key="LunarWallSafe",UI=AliasMap.Switcher,Text="Safe Mode (wall anti-crash)",
-        ExpandHandle="LunarWall",
-        GetFunc=function() return featureState().Settings.WallSafeMode end,
-        SetFunc=function(c,v) featureState().SetWallSafeMode(value(c,v));return true end}
     local page={Key="HackMenu",Text="VIP MENU",UIKey="Setting_Page_Privacy",Category={
         {Key="Lunar_AimBot",Text="AIMBOT",Stack=Aim},
         {Key="Lunar_ESP_V1",Text="ESP V1",Stack=V1},
@@ -5983,7 +6002,7 @@ _G.LunarFeatures.Aim={Tick=_G.AimTouch}
 -- component par recoil/deviation control karte hain. Amount 100 = minimum
 -- kick (0.01), 0 = kuch nahi chhua. Disable/reload par original values wapas.
 local Kick={Records={},LastWeapon=nil,Applied=false,Target=0.01}
-local KICK_FIELDS={"RecoilKickADS","GameDeviationFactor","GameDeviationAccuracy"}
+local KICK_FIELDS={"RecoilKickADS"}
 _G.LunarKick=Kick
 local function kickRestore()
     for comp,record in pairs(Kick.Records) do
@@ -7537,7 +7556,7 @@ do
     _G.__LunarAim2RestorePending=pending
     local A={Target=nil,Enabled=false,Due=0,LastTime=nil,Records=pending,RestoreErrors={}}
     F.Aim2=A
-    local fields={"RecoilKickADS","GameDeviationFactor","GameDeviationAccuracy"}
+    local fields={"RecoilKickADS"}
     local function restore()
         for obj,record in pairs(A.Records) do
             if not valid(obj) then A.Records[obj]=nil;A.RestoreErrors[obj]=nil
@@ -7769,7 +7788,7 @@ do
         if F.V1 and F.V1.Cleanup then F.V1.Cleanup.Pump(now) end
         local login=_G.LunarLoginRuntime
         if login and login.NeedsUpdate and (not F.LoginDue or now>=F.LoginDue or now<(F.LoginLastClock or now)) then
-            checked(login.Update,"Login.Update");F.LoginDue=now+0.5;F.LoginLastClock=now
+            checked(login.Update,"Login.Update");F.LoginDue=now+0.10;F.LoginLastClock=now
         end
         if F.Dirty and now>=F.SaveDue then checked(F.Save,"Settings.Save");F.SaveDue=now+0.5 end
         if not (login and login.Authorized) then
@@ -8002,7 +8021,13 @@ end
 
 
 g_vipserver_EnsureHackMenu()
-if _G.LunarLoginRuntime then _G.LunarLoginRuntime.NeedsUpdate=true;_G.LunarLoginRuntime.BindSettingsPath(_G.LunarFeatures.SettingsReadPath) end
+if _G.LunarLoginRuntime then
+    _G.LunarLoginRuntime.NeedsUpdate=true
+    _G.LunarLoginRuntime.BindSettingsPath(_G.LunarFeatures.SettingsReadPath)
+    -- Build the login pop-up immediately at startup instead of waiting for the
+    -- first ESP pump tick (which can be delayed while the game finishes loading).
+    pcall(_G.LunarLoginRuntime.Update)
+end
 g_vipserver_FastTick()
 g_vipserver_StartSettingsMaintenance()
 g_vipserver_ShotESP.Running=true
