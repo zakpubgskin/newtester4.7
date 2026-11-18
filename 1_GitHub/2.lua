@@ -1806,74 +1806,71 @@ do
         table.insert(Other,3,rangeItem("LunarIpadFOV","iPad FOV",90,120,"LunarIpad",
             function() return featureState().Settings.IpadFOV end,"SetIpadFOV"))
     end
-    -- V9.7: Aimbot ka apna alag section (AIMBOT tab). Rows flat hain taaki
-    -- Clean AIMBOT section. Master ON par neeche options ayengi.
+    -- Clean AIMBOT section. Master rows expand to reveal their options.
     local Aim={}
-    -- --- Aimbot V1 Master (expandable parent) ---
-    Aim[#Aim+1]={Key="LunarAim",UI=AliasMap.Switcher,Text="Aimbot V1 (Master - aim on/off)",
+    -- === AIMBOT V1 (master) ===
+    Aim[#Aim+1]={Key="LunarAim",UI=AliasMap.Switcher,Text="✦ AIMBOT V1  (Master)",
         ExpandIndex=0,EventType=F.AimSettingsEventType,EventID=F.AimSettingsEventID,
         GetFunc=function() return featureState().Settings.AimEnabled end,
         SetFunc=function(c,v) featureState().SetAim(value(c,v));return true end}
     if sliderReady then
         Aim[#Aim+1]=rangeItem("LunarAimSpeed","Aim Speed",100,120,"LunarAim",
             function() return featureState().Settings.AimSpeed end,"SetAimSpeed")
+        Aim[#Aim+1]=rangeItem("LunarAimFOV","Aim FOV",10,100,"LunarAim",
+            function() return featureState().Settings.AimFOV end,"SetAimFOV")
+        Aim[#Aim+1]=rangeItem("LunarAimDist","Aim Distance (m)",50,400,"LunarAim",
+            function() return featureState().Settings.AimDist end,"SetAimDist")
+        Aim[#Aim+1]=rangeItem("LunarAimScopePred","Aim Prediction (0=off)",0,100,"LunarAim",
+            function() return featureState().Settings.AimScopePred end,"SetAimScopePred")
     end
-    Aim[#Aim+1]={Key="LunarAimTarget",UI=AliasMap.Switcher,Text="Aim Target (Head/Body/Leg)",
+    Aim[#Aim+1]={Key="LunarAimTarget",UI=AliasMap.Switcher,Text="Aim Part (Head/Body/Leg)",
         ExpandHandle="LunarAim",SwitcherText={"Head","Body","Leg"},SwitcherValue={1,2,3},
         GetFunc=function() return featureState().Settings.AimTarget end,
         SetFunc=function(c,v) featureState().SetAimTarget(value(c,v));return true end}
-    if sliderReady then
-        Aim[#Aim+1]=rangeItem("LunarAimFOV","Aim FOV",10,100,"LunarAim",
-            function() return featureState().Settings.AimFOV end,"SetAimFOV")
-    end
-    if sliderReady then
-        Aim[#Aim+1]=rangeItem("LunarAimDist","Aim Distance (meter)",50,400,"LunarAim",
-            function() return featureState().Settings.AimDist end,"SetAimDist")
-    end
     Aim[#Aim+1]={Key="LunarAimVis",UI=AliasMap.Switcher,Text="Visible Only (wall check)",
         ExpandHandle="LunarAim",
         GetFunc=function() return featureState().Settings.AimVisCheck end,
         SetFunc=function(c,v) featureState().SetAimVisCheck(value(c,v));return true end}
-    Aim[#Aim+1]={Key="LunarAimKnock",UI=AliasMap.Switcher,Text="Ignore Knocked (no downed)",
+    Aim[#Aim+1]={Key="LunarAimKnock",UI=AliasMap.Switcher,Text="Ignore Knocked",
         ExpandHandle="LunarAim",
         GetFunc=function() return featureState().Settings.AimIgKnock end,
         SetFunc=function(c,v) featureState().SetAimIgKnock(value(c,v));return true end}
-    Aim[#Aim+1]={Key="LunarAimBot",UI=AliasMap.Switcher,Text="Ignore Bots (real players only)",
+    Aim[#Aim+1]={Key="LunarAimBot",UI=AliasMap.Switcher,Text="Ignore Bots",
         ExpandHandle="LunarAim",
         GetFunc=function() return featureState().Settings.AimIgBot end,
         SetFunc=function(c,v) featureState().SetAimIgBot(value(c,v));return true end}
 
-    -- --- Sniper Scope Aim (toggle, head lock, no fire) ---
-    Aim[#Aim+1]={Key="LunarAimSniper",UI=AliasMap.Switcher,Text="Sniper Scope Aim (head lock, no fire)",
+    -- === SNIPER SCOPE AIM (single toggle) ===
+    Aim[#Aim+1]={Key="LunarAimSniper",UI=AliasMap.Switcher,Text="✦ Sniper Scope Aim  (head lock)",
         GetFunc=function() return featureState().Settings.AimSniperScope end,
         SetFunc=function(c,v) featureState().SetAimSniperScope(value(c,v));return true end}
-    if sliderReady then
-        Aim[#Aim+1]=rangeItem("LunarAimScopePred","Scope Aim Prediction (0=off)",0,100,"LunarAim",
-            function() return featureState().Settings.AimScopePred end,"SetAimScopePred")
-    end
 
-    -- --- Shotgun Aim (expandable master - manual shotgun tuning) ---
-    Aim[#Aim+1]={Key="LunarAimShotgun",UI=AliasMap.Switcher,Text="Shotgun Aim (manual - tap to expand)",
+    -- === SHOTGUN AIM (master) ===
+    Aim[#Aim+1]={Key="LunarAimShotgun",UI=AliasMap.Switcher,Text="✦ SHOTGUN AIM  (Master)",
         ExpandIndex=0,EventType=F.AimSettingsEventType,EventID=F.AimSettingsEventID,
         GetFunc=function() return featureState().Settings.AimShotgun end,
         SetFunc=function(c,v) featureState().SetAimShotgun(value(c,v));return true end}
     if sliderReady then
-        Aim[#Aim+1]=rangeItem("LunarManualAimSpeed","Shotgun Aim Speed",100,120,"LunarAimShotgun",
+        Aim[#Aim+1]=rangeItem("LunarManualAimSpeed","Shotgun Speed",100,120,"LunarAimShotgun",
             function() return featureState().Settings.ManualAimSpeed end,"SetManualAimSpeed")
-        Aim[#Aim+1]=rangeItem("LunarManualAimFOV","Shotgun Aim FOV",10,100,"LunarAimShotgun",
+        Aim[#Aim+1]=rangeItem("LunarManualAimFOV","Shotgun FOV",10,100,"LunarAimShotgun",
             function() return featureState().Settings.ManualAimFOV end,"SetManualAimFOV")
-        Aim[#Aim+1]=rangeItem("LunarManualAimDist","Shotgun Aim Distance (m)",50,400,"LunarAimShotgun",
+        Aim[#Aim+1]=rangeItem("LunarManualAimDist","Shotgun Distance (m)",50,400,"LunarAimShotgun",
             function() return featureState().Settings.ManualAimDist end,"SetManualAimDist")
     end
-    Aim[#Aim+1]={Key="LunarManualAimTarget",UI=AliasMap.Switcher,Text="Shotgun Aim Target (Head/Body/Leg)",
+    Aim[#Aim+1]={Key="LunarManualAimTarget",UI=AliasMap.Switcher,Text="Shotgun Aim Part (Head/Body/Leg)",
         ExpandHandle="LunarAimShotgun",SwitcherText={"Head","Body","Leg"},SwitcherValue={1,2,3},
         GetFunc=function() return featureState().Settings.ManualAimTarget end,
         SetFunc=function(c,v) featureState().SetManualAimTarget(value(c,v));return true end}
-    Aim[#Aim+1]={Key="LunarManualAimBot",UI=AliasMap.Switcher,Text="Shotgun Ignore Bots (real players)",
+    Aim[#Aim+1]={Key="LunarManualAimBot",UI=AliasMap.Switcher,Text="Shotgun Ignore Bots",
         ExpandHandle="LunarAimShotgun",
         GetFunc=function() return featureState().Settings.ManualAimIgBot end,
         SetFunc=function(c,v) featureState().SetManualAimIgBot(value(c,v));return true end}
-    Aim[#Aim+1]={Key="LunarManualAimWall",UI=AliasMap.Switcher,Text="Shotgun Wall Check (visible only)",
+    Aim[#Aim+1]={Key="LunarManualAimKnock",UI=AliasMap.Switcher,Text="Shotgun Ignore Knocked",
+        ExpandHandle="LunarAimShotgun",
+        GetFunc=function() return featureState().Settings.ManualAimIgKnock end,
+        SetFunc=function(c,v) featureState().SetManualAimIgKnock(value(c,v));return true end}
+    Aim[#Aim+1]={Key="LunarManualAimWall",UI=AliasMap.Switcher,Text="Shotgun Wall Check",
         ExpandHandle="LunarAimShotgun",
         GetFunc=function() return featureState().Settings.ManualAimVisCheck end,
         SetFunc=function(c,v) featureState().SetManualAimVisCheck(value(c,v));return true end}
@@ -4902,6 +4899,7 @@ do
     settings.ManualAimDist=number(settings.ManualAimDist,50,400,120)
     settings.ManualAimTarget=number(settings.ManualAimTarget,1,3,1)
     settings.ManualAimIgBot=settings.ManualAimIgBot==true
+    settings.ManualAimIgKnock=settings.ManualAimIgKnock~=false
     settings.ManualAimVisCheck=settings.ManualAimVisCheck~=false
     _G.g_Botmater_ESPOptions=_G.g_Botmater_ESPOptions or {}
     for _,key in ipairs({"Name","Line","Health","Distance","EnemyCounter"}) do
@@ -4952,7 +4950,7 @@ do
                         if val=="true" or val=="false" then settings[key]=val=="true" end
                     end
                     -- Manual Aim persistence
-                    for _,key in ipairs({"ManualAimIgBot","ManualAimVisCheck"}) do
+                    for _,key in ipairs({"ManualAimIgBot","ManualAimIgKnock","ManualAimVisCheck"}) do
                         local val=payload:match("%f[%w_]"..key.."%s*=%s*(%a+)")
                         if val=="true" or val=="false" then settings[key]=val=="true" end
                     end
@@ -5000,7 +4998,7 @@ do
         if not F.Dirty or not io or not io.open then return end
         local lines={"return {", "  IpadEnabled = "..tostring(_G.MWConfig.IpadView==true)..","}
         for _,key in ipairs({"AimEnabled","WallEnabled","Aim2Enabled","MortarEnabled","IpadFOV","AimSpeed","AimTarget","WallVisible","WallOccluded","AimFOV","AimDist","EspRange","EspMaxTargets","KickAmount","AimScopePred","ManualAimSpeed","ManualAimFOV","ManualAimDist","ManualAimTarget"}) do lines[#lines+1]="  "..key.." = "..tostring(settings[key]).."," end
-        for _,key in ipairs({"AimVisCheck","AimIgKnock","AimIgBot","AimSniperScope","AimShotgun","WallSafeMode","KickControl","ManualAimIgBot","ManualAimVisCheck"}) do lines[#lines+1]="  "..key.." = "..tostring(settings[key]==true).."," end
+        for _,key in ipairs({"AimVisCheck","AimIgKnock","AimIgBot","AimSniperScope","AimShotgun","WallSafeMode","KickControl","ManualAimIgBot","ManualAimIgKnock","ManualAimVisCheck"}) do lines[#lines+1]="  "..key.." = "..tostring(settings[key]==true).."," end
         for _,key in ipairs({"Name","Line","Health","Distance","EnemyCounter"}) do lines[#lines+1]="  V1_"..key.." = "..tostring(_G.g_Botmater_ESPOptions[key]==true).."," end
         for _,key in ipairs({"Name","Line","Box","Health","Distance","Skeleton","Counter"}) do lines[#lines+1]="  V2_"..key.." = "..tostring(_G.g_vipserver_ESPOptions[key]==true).."," end
         lines[#lines+1]="}"
@@ -5124,6 +5122,7 @@ do
         if cfg then
             cfg.AimTouchSGVisCheck = on and settings.ManualAimVisCheck or settings.AimVisCheck
             cfg.AimTouchSGIgBot    = on and settings.ManualAimIgBot or settings.AimIgBot
+            cfg.AimTouchSGIgKnock  = on and settings.ManualAimIgKnock or settings.AimIgKnock
         end
         if data then
             data.AimTouchSGSpeed = on and settings.ManualAimSpeed or settings.AimSpeed
@@ -5142,6 +5141,7 @@ do
     F.SetManualAimDist=function(value) settings.ManualAimDist=number(value,50,400,120);return manualDirty() end
     F.SetManualAimTarget=function(value) settings.ManualAimTarget=number(value,1,3,1);return manualDirty() end
     F.SetManualAimIgBot=function(enabled) settings.ManualAimIgBot=enabled==true or enabled==1;return manualDirty() end
+    F.SetManualAimIgKnock=function(enabled) settings.ManualAimIgKnock=enabled==true or enabled==1;return manualDirty() end
     F.SetManualAimVisCheck=function(enabled) settings.ManualAimVisCheck=enabled==true or enabled==1;return manualDirty() end
     F.SetEspRange=function(value)
         settings.EspRange=number(value,400,1000,1000)
