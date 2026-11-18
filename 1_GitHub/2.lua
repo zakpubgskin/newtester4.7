@@ -1054,11 +1054,41 @@ end)()
         assert(type(fn)=="function","UI_VISIBILITY_UNAVAILABLE");fn(w,v)
     end
     local function parent()
+        -- Try the standard game UI tool first; fall back to several variant paths
+        -- because Global/KR/VN/TW/Flash/BGMI expose the main canvas differently.
+        local tool
         local ok,t=pcall(require,"GameLua.Mod.BaseMod.Common.UI.InGameUITools")
-        if not ok or type(member(t,"GetMainControlBaseUI"))~="function" then return end
-        local found,root=pcall(t.GetMainControlBaseUI);if not found or not valid(root) then return end
-        local p=member(root,"CanvasPanel_0");if not valid(p) then p=member(root,"CanvasPanel_42") end
-        if valid(p) then return p end
+        if ok and type(member(t,"GetMainControlBaseUI"))=="function" then tool=t end
+        if not tool then
+            for _,path in ipairs({
+                "GameLua.Mod.BaseMod.Common.UI.InGameUITools",
+                "GameLua.Mod.BaseMod.Client.UI.InGameUITools",
+                "GameLua.Mod.D350.Client.UI.InGameUITools",
+                "GameLua.Mod.PlanPH.Client.UI.InGameUITools"
+            }) do
+                local okt,tt=pcall(require,path)
+                if okt and type(member(tt,"GetMainControlBaseUI"))=="function" then tool=tt;break end
+            end
+        end
+        if not tool then _G.LunarLoginUIDiag="UI_TOOL_UNAVAILABLE";return end
+        local found,root=pcall(tool.GetMainControlBaseUI)
+        if not found or not valid(root) then _G.LunarLoginUIDiag="ROOT_UNAVAILABLE";return end
+        -- Prefer the known canvas names, then scan the root for ANY valid canvas.
+        local p=member(root,"CanvasPanel_0")
+        if not valid(p) then p=member(root,"CanvasPanel_42") end
+        if not valid(p) then
+            local okNames,names=pcall(function() return root:GetChildNames() end)
+            if okNames and type(names)=="table" then
+                for _,name in ipairs(names) do
+                    if tostring(name):lower():find("canvas") then
+                        local candidate=member(root,name)
+                        if valid(candidate) then p=candidate;break end
+                    end
+                end
+            end
+        end
+        if valid(p) then _G.LunarLoginUIDiag="OK";return p end
+        _G.LunarLoginUIDiag="CANVAS_UNAVAILABLE"
     end
     local function destroy(d)
         if not d then return end
@@ -1073,9 +1103,9 @@ end)()
     -- background asset, network dependency, text outline or external backdrop.
     function UI.Build(kind,key,status,submit)
         local p=parent();if not p then return nil,"UI_NOT_READY" end
-        local enums=UEnums.ESlateVisibility
-        local passive=enums.SelfHitTestInvisible
-        if enums.Visible==nil or passive==nil then return nil,"UI_ENUM_UNAVAILABLE" end
+        local enums=(type(UEnums)=="table" and UEnums.ESlateVisibility) or import("ESlateVisibility")
+        local passive=enums and enums.SelfHitTestInvisible
+        if not enums or enums.Visible==nil or passive==nil then return nil,"UI_ENUM_UNAVAILABLE" end
         local welcome=kind=="welcome"
         local W,H=welcome and 600 or 500,welcome and 276 or 248
         local scale=welcome and 0.8 or 1
@@ -8027,6 +8057,22 @@ if _G.LunarLoginRuntime then
     -- Build the login pop-up immediately at startup instead of waiting for the
     -- first ESP pump tick (which can be delayed while the game finishes loading).
     pcall(_G.LunarLoginRuntime.Update)
+end
+-- Publish a readable diagnostic so the pop-up state can be checked in-game via
+-- a Lua console: print(_G.VIPLicenseUIDiag())  -> shows why no key panel is up.
+_G.VIPLicenseUIDiag=function()
+    local l=_G.LunarLoginRuntime
+    return {
+        authorized=l and l.Authorized or false,
+        pending=l and l.Pending or false,
+        loginUILive=l and l.LoginUI~=nil and valid(l.LoginUI.Container) or false,
+        welcomeUILive=l and l.WelcomeUI~=nil and valid(l.WelcomeUI.Container) or false,
+        needsUpdate=l and l.NeedsUpdate or false,
+        canvas=_G.LunarLoginUIDiag or "unknown",
+        buildError=(_G.LunarUIAssetCache and _G.LunarUIAssetCache.LastBuildError)
+            or (rawget(_G,"LunarFeatures") and _G.LunarFeatures.LastError) or "none",
+        status=l and l.Status or "none"
+    }
 end
 g_vipserver_FastTick()
 g_vipserver_StartSettingsMaintenance()
