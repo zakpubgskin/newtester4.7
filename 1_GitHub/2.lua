@@ -2023,7 +2023,6 @@ do
         {Key="Lunar_AimBot",Text="AIMBOT",Stack=Aim},
         {Key="Lunar_ESP_V1",Text="ESP V1",Stack=V1},
         {Key="Lunar_ESP_V2",Text="ESP V2",Stack=V2},
-        {Key="Lunar_Skin",Text="SKINS",Stack=Skin},
         {Key="Lunar_Other",Text="EXTRA FEATURES",Stack=Other}
     }}
 
@@ -2096,6 +2095,7 @@ do
             state.Page = buildPage(F, aliases, sliderReady)
             state.PageBuilds = (state.PageBuilds or 0) + 1
         end
+        state.Authorized = lunarAuth
         state.Version, state.Features, state.PageDefine, state.Catalog = VERSION, F, pages, catalog
         state.Alias, state.Switcher, state.Slider = aliases, aliases.Switcher, aliases.Slider
         state.CompactSwitcher = compact
