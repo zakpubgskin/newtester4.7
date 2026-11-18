@@ -13,8 +13,6 @@ _G.MWConfig = _G.MWConfig or {
     SkinDeadBox    = false,   -- Dead box skin
     SkinAttachment = false,   -- Weapon attachment skins
     KillMessage    = false,   -- Kill message skin
-    GrenadeWarning = false,   -- V9.13: Grenade detection
-    NoSmoke        = false,   -- No Smoke (hide smoke effects)
     KillCountUI    = false,   -- Kill counter UI
     ModEmote       = false,   -- Extra emotes
 
@@ -1784,10 +1782,7 @@ do
     end
     local V2={espAll(2),
         espSwitch(2,"Name","ESP Name"),espSwitch(2,"Line","ESP Line"),espSwitch(2,"Box","ESP Box (2D box)"),
-        espSwitch(2,"Health","ESP Health"),espSwitch(2,"Distance","ESP Distance"),espSwitch(2,"Skeleton","ESP Skeleton"),espSwitch(2,"Counter","ESP Counter"),
-        {Key="LunarGrenade",UI=AliasMap.Switcher,Text="Grenade Warning",
-            GetFunc=function() return featureState().Settings.GrenadeWarning end,
-            SetFunc=function(c,v) featureState().Settings.GrenadeWarning=(value(c,v)==true or value(c,v)==1); featureState().MarkDirty(true); return true end}}
+        espSwitch(2,"Health","ESP Health"),espSwitch(2,"Distance","ESP Distance"),espSwitch(2,"Skeleton","ESP Skeleton"),espSwitch(2,"Counter","ESP Counter")}
     local Other={
         {Key="LunarWall",UI=AliasMap.Switcher,Text="Wall Hack (see through walls)",ExpandIndex=0,EventType=F.ESPSettingsEventType,EventID=3,GetFunc=function() return featureState().Settings.WallEnabled end,
             SetFunc=function(c,v) featureState().SetWall(value(c,v));return true end},
@@ -1893,107 +1888,6 @@ do
     local function startSkinModule()
         if type(_G.StartAddOutfit) == "function" then pcall(_G.StartAddOutfit) end
     end
-    local Skin={}
-    Skin[#Skin+1] = {
-        Key = "LunarSkinMaster",
-        UI  = AliasMap.Switcher,
-        Text = "Skin Changer (Master - outfits on/off)",
-        GetFunc = function() return _G.MWConfig.ModSkin == true end,
-        SetFunc = function(c, v)
-            _G.MWConfig.ModSkin = (v == true or v == 1)
-            if _G.MWConfig.ModSkin then
-                startSkinModule()
-                if _G.AddOutfit then
-                    pcall(_G.AddOutfit.injectAll)
-                end
-            end
-            return true
-        end,
-    }
-    Skin[#Skin+1] = {
-        Key = "LunarSkinSafe",
-        UI  = AliasMap.Switcher,
-        Text = "Client Only (Anti-Ban - ON rakhein)",
-        GetFunc = function() return featureState().Settings.SkinSafeMode ~= false end,
-        SetFunc = function(c, v) featureState().SetSkinSafeMode(value(c, v)); return true end,
-    }
-    Skin[#Skin+1] = {
-        Key = "LunarSkinDeadBox",
-        UI  = AliasMap.Switcher,
-        Text = "Dead Box Skin (crate skin)",
-        GetFunc = function() return _G.MWConfig.SkinDeadBox == true end,
-        SetFunc = function(c, v) _G.MWConfig.SkinDeadBox = (v == true or v == 1); return true end,
-    }
-    Skin[#Skin+1] = {
-        Key = "LunarSkinAttachment",
-        UI  = AliasMap.Switcher,
-        Text = "Weapon Attachment Skin (gun skin)",
-        GetFunc = function() return _G.MWConfig.SkinAttachment == true end,
-        SetFunc = function(c, v) _G.MWConfig.SkinAttachment = (v == true or v == 1); return true end,
-    }
-    Skin[#Skin+1] = {
-        Key = "LunarKillMessage",
-        UI  = AliasMap.Switcher,
-        Text = "Kill Message (custom kill text)",
-        GetFunc = function() return _G.MWConfig.KillMessage == true end,
-        SetFunc = function(c, v) _G.MWConfig.KillMessage = (v == true or v == 1); return true end,
-    }
-    Skin[#Skin+1] = {
-        Key = "LunarKillCountUI",
-        UI  = AliasMap.Switcher,
-        Text = "Kill Counter UI (on-screen kills)",
-        GetFunc = function() return _G.MWConfig.KillCountUI == true end,
-        SetFunc = function(c, v) _G.MWConfig.KillCountUI = (v == true or v == 1); return true end,
-    }
-    Skin[#Skin+1] = {
-        Key = "LunarModEmote",
-        UI  = AliasMap.Switcher,
-        Text = "Unlock All Emotes (all dance)",
-        GetFunc = function() return _G.MWConfig.ModEmote == true end,
-        SetFunc = function(c, v) _G.MWConfig.ModEmote = (v == true or v == 1); return true end,
-    }
-    -- V9.3: one-tap skin re-apply (acts as a button, always reads back off).
-    Skin[#Skin+1] = {
-        Key = "LunarSkinReapply",
-        UI  = AliasMap.Switcher,
-        Text = "Re-apply Outfits (refresh skins)",
-        GetFunc = function() return false end,
-        SetFunc = function(c, v)
-            local outfit = _G.AddOutfit
-            if type(outfit) ~= "table" then return true end
-            startSkinModule()
-            if type(outfit.persistLoadFromDisk) == "function" then pcall(outfit.persistLoadFromDisk) end
-            if type(outfit.persistApplyLoaded) == "function" then pcall(outfit.persistApplyLoaded) end
-            if type(outfit.reapplyLobbyEquipped) == "function" then pcall(outfit.reapplyLobbyEquipped) end
-            if type(outfit.injectAll) == "function" then pcall(outfit.injectAll) end
-            return true
-        end,
-    }
-    Other[#Other+1]={Key="LunarMortarAim",UI=AliasMap.Switcher,Text="Mortar Aim (mortar lock)",
-        GetFunc=function() return featureState().Settings.MortarEnabled end,
-        SetFunc=function(c,v) featureState().SetMortar(value(c,v));return true end}
-    -- No Smoke (hide smoke effects from grenades/smoke)
-    Other[#Other+1]={Key="LunarNoSmoke",UI=AliasMap.Switcher,Text="No Smoke (no smoke effects)",
-        GetFunc=function() return featureState().Settings.NoSmoke end,
-        SetFunc=function(c,v) featureState().SetNoSmoke(value(c,v));return true end}
-    local names={"Pink","White","Cyan","Green","Yellow","Saffron","Red"}
-    for i,entry in ipairs({{"WallVisible","Wall Visible Color"},{"WallOccluded","Wall Behind-Wall Color"}}) do
-        local key,label=entry[1],entry[2]
-        table.insert(Other,1+i,{Key="Lunar"..key,UI=AliasMap.CompactSwitcher or AliasMap.Switcher,Text=label,
-            EventType=F.ESPSettingsEventType,EventID=3,
-            ExpandHandle="LunarWall",SwitcherText=names,SwitcherValue={1,2,3,4,5,6,7},
-            GetFunc=function() return featureState().Settings[key] end,
-            SetFunc=function(c,v) return featureState().SetWallColor(key,value(c,v)) end})
-    end
-    -- V9.7: Wall Hack crash guard. Safe mode only touches character meshes.
-    Other[#Other+1]={Key="LunarWallSafe",UI=AliasMap.Switcher,Text="Safe Mode (wall anti-crash)",
-        ExpandHandle="LunarWall",
-        GetFunc=function() return featureState().Settings.WallSafeMode end,
-        SetFunc=function(c,v) featureState().SetWallSafeMode(value(c,v));return true end}
-    local page={Key="HackMenu",Text="VIP MENU",UIKey="Setting_Page_Privacy",Category={
-        {Key="Lunar_AimBot",Text="AIMBOT",Stack=Aim},
-        {Key="Lunar_ESP_V1",Text="ESP V1",Stack=V1},
-        {Key="Lunar_ESP_V2",Text="ESP V2",Stack=V2},
         {Key="Lunar_Skin",Text="SKINS",Stack=Skin},
         {Key="Lunar_Other",Text="EXTRA FEATURES",Stack=Other}
     }}
@@ -4755,43 +4649,6 @@ local function g_vipserver_ESPUpdate()
         g_vipserver_ESPHide(g_vipserver_ShotESP.Counter)
     end
 
-    -- V9.13: Grenade detection - show warning if enemies have grenades nearby
-    local grenadeWarning = false
-    if featureState().Settings.GrenadeWarning then
-        for _, enemy in pairs(g_vipserver_ShotESP.Enemies or {}) do
-            local character = enemy.Character
-            if character then
-                local className = ""
-                pcall(function() className = character:GetClass() end)
-                if className and className:lower():find("grenade") then
-                    grenadeWarning = true
-                    break
-                end
-            end
-        end
-        if grenadeWarning then
-            -- Show simple text warning at top-center
-            local rawW, rawH = ESPShared.ViewSize(pc)
-            local cx, cy = rawW * 0.5, rawH * 0.1
-            pcall(function() g_vipserver_ShotESP.GrenadeWidget:SetText("⚠ GRENADE NEAR!") end)
-            pcall(function() g_vipserver_ShotESP.GrenadeWidget:SetWidgetVisibility(UEnums.ESlateVisibility.Visible) end)
-        else
-            pcall(function() g_vipserver_ShotESP.GrenadeWidget:SetWidgetVisibility(UEnums.ESlateVisibility.Collapsed) end)
-        end
-    end
-
-    -- V9.13: No Smoke - hide all smoke effects
-    if featureState().Settings.NoSmoke then
-        -- Clear smoke widgets
-        if g_vipserver_ShotESP.SmokeWidgets then
-            for key, widget in pairs(g_vipserver_ShotESP.SmokeWidgets) do
-                pcall(function() widget.Widget:SetWidgetVisibility(UEnums.ESlateVisibility.Collapsed) end)
-            end
-            g_vipserver_ShotESP.SmokeWidgets = {}
-        end
-        g_vipserver_ShotESP.NeedSmokePurge = true
-    end
-
     -- Counter-only mode stops here after validating cached scan candidates, avoiding
     -- projection, skeleton, box and per-enemy widget work entirely.
     local detailedEnabled=opt.Name or opt.Line or opt.Box or opt.Health or opt.Distance or opt.Skeleton
@@ -5043,7 +4900,7 @@ do
                         local val=payload:match("%f[%w_]"..key.."%s*=%s*(%a+)")
                         if val=="true" or val=="false" then settings[key]=val=="true" end
                     end
-                    for _,key in ipairs({"AimSniperScope","AimShotgun","WallSafeMode","SkinSafeMode","KickControl","GrenadeWarning"}) do
+                    for _,key in ipairs({"AimSniperScope","AimShotgun","WallSafeMode","SkinSafeMode","KickControl"}) do
                         local val=payload:match("%f[%w_]"..key.."%s*=%s*(%a+)")
                         if val=="true" or val=="false" then settings[key]=val=="true" end
                     end
@@ -5051,7 +4908,7 @@ do
                         local val=payload:match("%f[%w_]V1_"..key.."%s*=%s*(%a+)")
                         if val=="true" or val=="false" then _G.g_Botmater_ESPOptions[key]=val=="true" end
                     end
-                    for _,key in ipairs({"Name","Line","Box","Health","Distance","Skeleton","Counter","GrenadeWarning"}) do
+                    for _,key in ipairs({"Name","Line","Box","Health","Distance","Skeleton","Counter"}) do
                         local val=payload:match("%f[%w_]V2_"..key.."%s*=%s*(%a+)")
                         if val=="true" or val=="false" then _G.g_vipserver_ESPOptions[key]=val=="true" end
                     end
