@@ -530,8 +530,82 @@ pcall(function()
     end
 end)
 
+-- ============================================================
+-- LOBBY SKIN/OUTFIT SYSTEM (from FEATURE/newfeature.lua)
+-- ============================================================
+-- AddOutfit Persist System
+_G.AddOutfitPersist = _G.AddOutfitPersist or { 
+    path = nil, dirty = false, scheduled = false, loaded = nil, lastWritten = nil,
+    configVehicleSlots = nil, configWeapons = nil, configSlots = nil,
+    lobbyVehicleSubType = nil, lobbyVehicleIns = nil, lobbyVehicleResID = nil,
+    hallThemeResID = nil, hallThemeIns = nil,
+    configChassisLight = nil, configChassisLightMap = nil
+}
+
+-- Lobby State System  
+_G.AddOutfitLobbyState = _G.AddOutfitLobbyState or {
+    wardrobeRefreshed = false,
+    reapplyScheduled  = false,
+    reapplyDone       = false,
+    outfitResolved    = false,
+    skinResolved      = false,
+    cachedOutfit      = nil,
+    cachedSkin        = nil,
+    injectRefreshGen  = 0,
+    lobbySynced       = false,
+}
+
+-- LOBBY table for easy access
+LOBBY = setmetatable({}, {
+    __index = function(_, k) return _G.AddOutfitLobbyState[k] end,
+    __newindex = function(_, k, v) _G.AddOutfitLobbyState[k] = v end,
+})
+
+-- Lobby manipulation functions
+function F.lobbyState()
+    return _G.AddOutfitLobbyState
+end
+
+function F.invalidateLobbyResolved()
+    LOBBY.outfitResolved = false
+    LOBBY.skinResolved   = false
+    LOBBY.cachedOutfit   = nil
+    LOBBY.cachedSkin     = nil
+end
+
+function F.perfInvalidateLobby()
+    LOBBY.lobbySynced   = false
+    _G.AddOutfitPersist.dirty = true
+    _G.AddOutfitPersist.desiredSkins = nil
+    for k in pairs(_G.AddOutfitPersist.skinTarget or {}) do _G.AddOutfitPersist.skinTarget[k] = nil end
+    F.invalidateLobbyResolved()
+end
+
+function F.clearWeaponSkins()
+    if _G.MATCH_CONFIG and _G.MATCH_CONFIG.weaponSkins then
+        for k in pairs(_G.MATCH_CONFIG.weaponSkins) do _G.MATCH_CONFIG.weaponSkins[k] = nil end
+    end
+    _G.AddOutfitPersist.desiredSkins = nil
+    for k in pairs(_G.AddOutfitPersist.skinTarget or {}) do _G.AddOutfitPersist.skinTarget[k] = nil end
+end
+
+-- Lobby skin/features settings from GTLModConfig
+-- Bridge lobby settings to LexusConfig for compatibility
+if _G.GTLModConfig then
+    -- Vehicle skin settings
+    if _G.GTLModConfig.lobbyVehicleSubType ~= nil then _G.LexusConfig.lobbyVehicleSubType = _G.GTLModConfig.lobbyVehicleSubType end
+    if _G.GTLModConfig.lobbyVehicleIns ~= nil then _G.LexusConfig.lobbyVehicleIns = _G.GTLModConfig.lobbyVehicleIns end
+    if _G.GTLModConfig.lobbyVehicleResID ~= nil then _G.LexusConfig.lobbyVehicleResID = _G.GTLModConfig.lobbyVehicleResID end
+    -- Theme settings
+    if _G.GTLModConfig.hallThemeResID ~= nil then _G.LexusConfig.hallThemeResID = _G.GTLModConfig.hallThemeResID end
+    if _G.GTLModConfig.hallThemeIns ~= nil then _g.LexusConfig.hallThemeIns = _G.GTLModConfig.hallThemeIns end
+    -- Outfit/cached settings
+    if _G.GTLModConfig.cachedOutfit ~= nil then _G.LexusConfig.cachedOutfit = _G.GTLModConfig.cachedOutfit end
+    if _G.GTLModConfig.cachedSkin ~= nil then _G.LexusConfig.cachedSkin = _g.GTLModConfig.cachedSkin end
+    if _G.GTLModConfig.lobbySynced ~= nil then _G.LexusConfig.lobbySynced = _G.GTLModConfig.lobbySynced end
+end
+
 -- CHỨA STATE HỆ THỐNG ĐÃ ĐƯỢC TỐI ƯU HÓA HOÀN TOÀN RAM TRỐNG
--- (LexusState already defined above, continue with TrackedMarks etc.)
 _G.LexusState = _G.LexusState or { 
     LoopToken = 0, 
     NativeESPReady = false,
