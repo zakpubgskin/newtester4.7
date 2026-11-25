@@ -126,6 +126,8 @@ _G.LexusConfig = _G.LexusConfig or {
     -- Combat Features
     GodMode       = false,    -- [THÊM MỚI] God Mode + Fast Shoot
     CustomMagicBullet = false, -- [THÊM MỚI] Magic Bullet (Hitbox scaling)
+    WeaponGlow    = false,    -- [THÊM MỚI] Glow súng
+    BugManEnable  = false,    -- [THÊM MỚI] Bug Màn
 }
 
 -- ============================================================
@@ -152,15 +154,10 @@ if _G.LexusConfig then
     if _G.LexusConfig.CustomMagicBullet ~= nil then
         _G.LunarFeatures.Settings.MagicEnabled = _G.LexusConfig.CustomMagicBullet
     end
-    -- Config Mới Cho Aimbot V2 (Aim Touch)
-    AimTouchHipPrio = 1, AimTouchHipBone = 1, AimTouchHipCond = 1, AimTouchHipSpeed = 50, AimTouchHipFOV = 30, AimTouchHipDist = 250,
-    AimTouchSGPrio = 1, AimTouchSGBone = 2, AimTouchSGCond = 1, AimTouchSGSpeed = 80, AimTouchSGFOV = 40, AimTouchSGDist = 30,
-    AimTouchScopePrio = 1, AimTouchScopeBone = 2, AimTouchScopeCond = 1, AimTouchScopeSpeed = 40, AimTouchScopeFOV = 20, AimTouchScopeDist = 300, AimTouchScopePred = 0, AimTouchScopeRecoil = 0,
-    AimTouchSniperPrio = 1, AimTouchSniperBone = 1, AimTouchSniperCond = 2, AimTouchSniperSpeed = 30, AimTouchSniperFOV = 20, AimTouchSniperDist = 400, AimTouchSniperPred = 0,
     -- Glow Súng
-    WeaponGlow    = false,
+    WeaponGlow = _G.LexusConfig.WeaponGlow or false
     -- Bug Màn
-    BugManEnable  = false,
+    BugManEnable = _G.LexusConfig.BugManEnable or false
 }
 
 -- CHỨA STATE HỆ THỐNG ĐÃ ĐƯỢC TỐI ƯU HÓA HOÀN TOÀN RAM TRỐNG
