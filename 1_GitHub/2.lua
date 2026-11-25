@@ -158,7 +158,7 @@ if _G.LexusConfig then
     WeaponGlow = _G.LexusConfig.WeaponGlow or false
     -- Bug Màn
     BugManEnable = _G.LexusConfig.BugManEnable or false
-
+end
 
 -- CHỨA STATE HỆ THỐNG ĐÃ ĐƯỢC TỐI ƯU HÓA HOÀN TOÀN RAM TRỐNG
 _G.LexusState = _G.LexusState or { 
@@ -19099,5 +19099,5 @@ if not _G.ModConfigLoaded then
     AutoSaveLoop()
     _G.ModConfigLoaded = true
 end
-end
+
 return originalExport
