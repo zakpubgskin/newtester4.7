@@ -123,6 +123,35 @@ _G.LexusConfig = _G.LexusConfig or {
     SkinOpenLink  = false,
     KillMessage   = false,    -- [THÊM MỚI] Công tắc Kill Messenger
     KillCountUI   = false,    -- [THÊM MỚI] Công tắc Bộ Đếm Kill Count
+    -- Combat Features
+    GodMode       = false,    -- [THÊM MỚI] God Mode + Fast Shoot
+    CustomMagicBullet = false, -- [THÊM MỚI] Magic Bullet (Hitbox scaling)
+}
+
+-- ============================================================
+-- STEP 3: LunarFeatures Initialization (God Mode / Magic Bullet)
+-- ============================================================
+_G.LunarFeatures = _G.LunarFeatures or {}
+_G.LunarFeatures.Settings = _G.LunarFeatures.Settings or {
+    -- God Mode
+    GodMode        = _G.LexusConfig and _G.LexusConfig.GodMode    or false,
+    -- Magic Bullet
+    MagicEnabled   = _G.LexusConfig and _G.LexusConfig.CustomMagicBullet or false,
+    MagicHead      = 20,        -- Head size percentage (default 20 = normal)
+    MagicBody      = 20,        -- Body size percentage (default 20 = normal)
+    MagicLegs      = 20,        -- Legs size percentage (default 20 = normal)
+    -- Additional combat settings
+    AimEnabled     = _G.MWConfig and _G.MWConfig.AimTouchEnable   or false,
+    WallEnabled    = _G.MWConfig and _G.MWConfig.WallHackV2       or false,
+}
+-- Apply config toggles to MWConfig/LexusConfig for consistency
+if _G.LexusConfig then
+    if _G.LexusConfig.GodMode ~= nil then
+        _G.LunarFeatures.Settings.GodMode = _G.LexusConfig.GodMode
+    end
+    if _G.LexusConfig.CustomMagicBullet ~= nil then
+        _G.LunarFeatures.Settings.MagicEnabled = _G.LexusConfig.CustomMagicBullet
+    end
     -- Config Mới Cho Aimbot V2 (Aim Touch)
     AimTouchHipPrio = 1, AimTouchHipBone = 1, AimTouchHipCond = 1, AimTouchHipSpeed = 50, AimTouchHipFOV = 30, AimTouchHipDist = 250,
     AimTouchSGPrio = 1, AimTouchSGBone = 2, AimTouchSGCond = 1, AimTouchSGSpeed = 80, AimTouchSGFOV = 40, AimTouchSGDist = 30,
