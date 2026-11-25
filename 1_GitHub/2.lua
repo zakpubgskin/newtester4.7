@@ -18893,7 +18893,7 @@ end)
     local magicWasOn = false
 
     local function applyMagic()
-        local on = S.MagicEnabled == true
+        local on = _G.LunarFeatures.Settings.MagicEnabled == true
         -- Off: reset the hitboxes exactly once, then stop touching them.
         if not on and not magicWasOn then return end
         local player = getPlayer()
@@ -18908,9 +18908,9 @@ end)
                 for _, c in pairs(GDP.GameCharacters) do chars[#chars + 1] = c end
             end
         end)
-        local mHead = (tonumber(S.MagicHead) or 20) / 20
-        local mBody = (tonumber(S.MagicBody) or 20) / 20
-        local mLegs = (tonumber(S.MagicLegs) or 20) / 20
+        local mHead = (tonumber(_G.LunarFeatures.Settings.MagicHead) or 20) / 20
+        local mBody = (tonumber(_G.LunarFeatures.Settings.MagicBody) or 20) / 20
+        local mLegs = (tonumber(_G.LunarFeatures.Settings.MagicLegs) or 20) / 20
         local scales = {
             head = mHead, neck_01 = mHead,
             pelvis = mBody, spine_01 = mBody, spine_02 = mBody, spine_03 = mBody,
@@ -18969,7 +18969,7 @@ end)
         local ok, err = pcall(function()
             local player = getPlayer()
             if not player then return end
-            applyGodMode(player, S.GodMode == true)
+            applyGodMode(player, _G.LunarFeatures.Settings.GodMode == true)
             applyMagic()
         end)
         if not ok and F.Error then pcall(F.Error, "Combat.Tick", err) end
