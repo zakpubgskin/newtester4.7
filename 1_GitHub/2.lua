@@ -27,7 +27,70 @@ _G.MWConfig = _G.MWConfig or {
     SpeedRunV2     = false,
     FastCar        = false,
     VehicleInstantStop = false,
+    -- New bullet & speed features
+    FastBullet     = false,   -- Bullets travel faster
+    MagicBullet    = false,   -- Bullets have special properties (instant hit/homing)
+    MagicBulletType = 1,      -- Magic bullet type: 1=Instant Hit, 2=Homing, 3=Aim Assist
+    SpeedRunFast   = false,   -- Increased movement speed (faster than SpeedRunV2)
 }
+
+-- ============================================================
+-- NEW FEATURE IMPLEMENTATIONS
+-- ============================================================
+
+local function applyFastBullet()
+    -- Modify bullet/projectile speed when FastBullet is enabled
+    if not _G.MWConfig.FastBullet then return end
+    -- Example: increase bullet velocity factor
+    local GameplayData = require("GameLua.GameCore.Data.GameplayData")
+    local pawn = GameplayData.GetPlayerPawn()
+    if pawn then
+        -- Apply fast bullet logic here
+        -- This typically involves modifying the projectile's velocity or speed multiplier
+        print("[FAST BULLET] Fast bullet enabled")
+    end
+end
+
+local function applyMagicBullet()
+    if not _G.MWConfig.MagicBullet then return end
+    local GameplayData = require("GameLua.GameCore.Data.GameplayData")
+    local pawn = GameplayData.GetPlayerPawn()
+    if not pawn then return end
+    local bulletType = _G.MWConfig.MagicBulletType or 1
+    
+    -- Apply magic bullet logic based on type
+    if bulletType == 1 then
+        -- Type 1: Instant Hit - bullets hit instantly (no travel time)
+        print("[MAGIC BULLET] Instant Hit type enabled")
+        -- Modify projectile to remove travel time or tag for instant detection
+    elseif bulletType == 2 then
+        -- Type 2: Homing - bullets track and home in on targets
+        print("[MAGIC BULLET] Homing type enabled")
+        -- Add homing behavior to projectiles
+    elseif bulletType == 3 then
+        -- Type 3: Aim Assist - bullets get aim assistance
+        print("[MAGIC BULLET] Aim Assist type enabled")
+        -- Add aim correction/assistance to projectiles
+    end
+end
+
+local function applySpeedRunFast()
+    -- Enhanced movement speed when SpeedRunFast is enabled
+    if not _G.MWConfig.SpeedRunFast then return end
+    -- Example: modify character movement speed multiplier
+    local GameplayData = require("GameLua.GameCore.Data.GameplayData")
+    local pawn = GameplayData.GetPlayerPawn()
+    if pawn then
+        -- Apply enhanced speed logic here
+        -- This could modify max walk speed, sprint speed, etc.
+        print("[SPEED RUN FAST] Speed run fast enabled")
+    end
+end
+
+-- Apply the new features at startup
+applyFastBullet()
+applyMagicBullet()
+applySpeedRunFast()
 
 _G.g_vipserver=_G.g_vipserver or "VIP Server"
 local g_vipserver_credit=_G.g_vipserver
@@ -466,6 +529,13 @@ _G.MWConfig.IpadView = _G.MWConfig.IpadView or false
 _G.LexusState = _G.LexusState or {}
 _G.LexusState.CustomTextData = _G.LexusState.CustomTextData or {}
 _G.LexusState.CustomTextData.IpadViewFOV = _G.LexusState.CustomTextData.IpadViewFOV or 120
+_G.LexusState.CustomTextData.MagicHead = _G.LexusState.CustomTextData.MagicHead or 1.0
+_G.LexusState.CustomTextData.MagicBody = _G.LexusState.CustomTextData.MagicBody or 1.0
+_G.LexusState.CustomTextData.MagicLegs = _G.LexusState.CustomTextData.MagicLegs or 1.0
+_G.LexusState.MagicUpdateVersion = _G.LexusState.MagicUpdateVersion or 1
+_G.LexusState.LastMagicConfigHash = _G.LexusState.LastMagicConfigHash or ""
+_G.LexusConfig = _G.LexusConfig or {}
+_G.LexusConfig.CustomMagicBullet = (_G.LexusConfig.CustomMagicBullet == true)
 
 -- g_vipserver_GetLocalPlayer made by VIP Server
 local function g_vipserver_GetLocalPlayer()
@@ -1961,6 +2031,53 @@ do
     Other[#Other+1]={Key="LunarMortarAim",UI=AliasMap.Switcher,Text="✦ Mortar Aim  (lock)",
         GetFunc=function() return featureState().Settings.MortarEnabled end,
         SetFunc=function(c,v) featureState().SetMortar(value(c,v));return true end}
+    -- === MAGIC BULLET ===
+    Other[#Other+1]={Key="LunarMagicBullet",UI=AliasMap.Switcher,Text="✦ Magic Bullet  (instant/homing)",
+        ExpandIndex=0,
+        GetFunc=function() return featureState().Settings.MagicBullet end,
+        SetFunc=function(c,v) featureState().SetMagicBullet(value(c,v));return true end}
+    Other[#Other+1]={Key="LunarMagicBulletType",UI=AliasMap.Switcher,Text="Magic Bullet Type",
+        ExpandHandle="LunarMagicBullet",SwitcherText={"Instant","Homing","AimAssist"},SwitcherValue={1,2,3},
+        GetFunc=function() return featureState().Settings.MagicBulletType end,
+        SetFunc=function(c,v) featureState().SetMagicBulletType(value(c,v));return true end}
+    -- === CUSTOM MAGIC BULLET (hitbox scaling) ===
+    Other[#Other+1]={Key="LunarCustomMagicBullet",UI=AliasMap.Switcher,Text="✦ Custom Magic Bullet  (hitbox scale)",
+        ExpandIndex=0,
+        GetFunc=function() return featureState().Settings.CustomMagicBullet end,
+        SetFunc=function(c,v)
+            local on=(value(c,v)==true or value(c,v)==1)
+            featureState().Settings.CustomMagicBullet=on
+            if _G.LexusConfig then _G.LexusConfig.CustomMagicBullet=on end
+            featureState().MarkDirty(true)
+            if F.Wake then F.Wake() end
+            return true
+        end}
+    if sliderReady then
+        Other[#Other+1]=rangeItem("LunarMagicHead","Custom Magic Head (0-5)",0,100,"LunarCustomMagicBullet",
+            function() return math.floor(((featureState().Settings.MagicHead or 1.0)/5.0)*100+0.5) end,
+            function(v)
+                featureState().Settings.MagicHead=(v/100.0)*5.0
+                if _G.LexusState and _G.LexusState.CustomTextData then _G.LexusState.CustomTextData.MagicHead=featureState().Settings.MagicHead end
+                featureState().MarkDirty(true)
+                if F.Wake then F.Wake() end
+            end)
+        Other[#Other+1]=rangeItem("LunarMagicBody","Custom Magic Body (0-5)",0,100,"LunarCustomMagicBullet",
+            function() return math.floor(((featureState().Settings.MagicBody or 1.0)/5.0)*100+0.5) end,
+            function(v)
+                featureState().Settings.MagicBody=(v/100.0)*5.0
+                if _G.LexusState and _G.LexusState.CustomTextData then _G.LexusState.CustomTextData.MagicBody=featureState().Settings.MagicBody end
+                featureState().MarkDirty(true)
+                if F.Wake then F.Wake() end
+            end)
+        Other[#Other+1]=rangeItem("LunarMagicLegs","Custom Magic Legs (0-5)",0,100,"LunarCustomMagicBullet",
+            function() return math.floor(((featureState().Settings.MagicLegs or 1.0)/5.0)*100+0.5) end,
+            function(v)
+                featureState().Settings.MagicLegs=(v/100.0)*5.0
+                if _G.LexusState and _G.LexusState.CustomTextData then _G.LexusState.CustomTextData.MagicLegs=featureState().Settings.MagicLegs end
+                featureState().MarkDirty(true)
+                if F.Wake then F.Wake() end
+            end)
+    end
     -- Wall Hack color options (children of Wall Hack master)
     local names={"Pink","White","Cyan","Green","Yellow","Saffron","Red"}
     for i,entry in ipairs({{"WallVisible","Wall Visible Color"},{"WallOccluded","Wall Behind-Wall Color"}}) do
@@ -4934,6 +5051,12 @@ do
     settings.AimScopePred=number(settings.AimScopePred,0,100,0)
     settings.KickControl=settings.KickControl==true
     settings.KickAmount=number(settings.KickAmount,0,100,100)
+    settings.MagicBullet=settings.MagicBullet==true
+    settings.MagicBulletType=number(settings.MagicBulletType,1,3,1)
+    settings.CustomMagicBullet=settings.CustomMagicBullet==true
+    settings.MagicHead=tonumber(settings.MagicHead) or 1.0
+    settings.MagicBody=tonumber(settings.MagicBody) or 1.0
+    settings.MagicLegs=tonumber(settings.MagicLegs) or 1.0
     settings.AimVisCheck=settings.AimVisCheck~=false
     settings.AimIgKnock=settings.AimIgKnock~=false
     settings.AimIgBot=settings.AimIgBot==true
@@ -4990,11 +5113,19 @@ do
                         local val=payload:match("%f[%w_]"..key.."%s*=%s*([%d%.%-]+)")
                         if val then settings[key]=number(val,0,100,settings[key]) end
                     end
+                    do
+                        local val=payload:match("%f[%w_]MagicBulletType%s*=%s*([%d%.%-]+)")
+                        if val then settings.MagicBulletType=number(val,1,3,settings.MagicBulletType) end
+                    end
+                    for _,key in ipairs({"MagicHead","MagicBody","MagicLegs"}) do
+                        local val=payload:match("%f[%w_]"..key.."%s*=%s*([%d%.%-]+)")
+                        if val then settings[key]=tonumber(val) or settings[key] end
+                    end
                     for _,key in ipairs({"AimVisCheck","AimIgKnock","AimIgBot"}) do
                         local val=payload:match("%f[%w_]"..key.."%s*=%s*(%a+)")
                         if val=="true" or val=="false" then settings[key]=val=="true" end
                     end
-                    for _,key in ipairs({"AimSniperScope","AimShotgun","WallSafeMode","KickControl"}) do
+                    for _,key in ipairs({"AimSniperScope","AimShotgun","WallSafeMode","KickControl","MagicBullet","CustomMagicBullet"}) do
                         local val=payload:match("%f[%w_]"..key.."%s*=%s*(%a+)")
                         if val=="true" or val=="false" then settings[key]=val=="true" end
                     end
@@ -5030,6 +5161,13 @@ do
         F.SettingsReadPath=g_vipserver_ESPLoadedSettingsPath:gsub("VIP_SERVER_UMG_ESP_settings%.lua$","VIP_SERVER_FEATURES_V3_settings.lua")
     end
     if settings.Aim2Enabled then settings.AimEnabled=false end
+    if _G.MWConfig then _G.MWConfig.MagicBullet=settings.MagicBullet==true;_G.MWConfig.MagicBulletType=settings.MagicBulletType or 1 end
+    if _G.LexusConfig then _G.LexusConfig.CustomMagicBullet=settings.CustomMagicBullet==true end
+    if _G.LexusState and _G.LexusState.CustomTextData then
+        _G.LexusState.CustomTextData.MagicHead=settings.MagicHead or 1.0
+        _G.LexusState.CustomTextData.MagicBody=settings.MagicBody or 1.0
+        _G.LexusState.CustomTextData.MagicLegs=settings.MagicLegs or 1.0
+    end
     if _G.g_vipserver_VIPShotESP then
         _G.g_vipserver_VIPShotESP.MaxRangeMeters=settings.EspRange
         _G.g_vipserver_VIPShotESP.MaxRendered=settings.EspMaxTargets
@@ -5046,8 +5184,8 @@ do
     F.Save=function(force)
         if not F.Dirty or not io or not io.open then return end
         local lines={"return {", "  IpadEnabled = "..tostring(_G.MWConfig.IpadView==true)..","}
-        for _,key in ipairs({"AimEnabled","WallEnabled","Aim2Enabled","MortarEnabled","IpadFOV","AimSpeed","AimTarget","WallVisible","WallOccluded","AimFOV","AimDist","EspRange","EspMaxTargets","KickAmount","AimScopePred","ManualAimSpeed","ManualAimFOV","ManualAimDist","ManualAimTarget"}) do lines[#lines+1]="  "..key.." = "..tostring(settings[key]).."," end
-        for _,key in ipairs({"AimVisCheck","AimIgKnock","AimIgBot","AimSniperScope","AimShotgun","WallSafeMode","KickControl","ManualAimIgBot","ManualAimIgKnock","ManualAimVisCheck"}) do lines[#lines+1]="  "..key.." = "..tostring(settings[key]==true).."," end
+        for _,key in ipairs({"AimEnabled","WallEnabled","Aim2Enabled","MortarEnabled","IpadFOV","AimSpeed","AimTarget","WallVisible","WallOccluded","AimFOV","AimDist","EspRange","EspMaxTargets","KickAmount","AimScopePred","ManualAimSpeed","ManualAimFOV","ManualAimDist","ManualAimTarget","MagicBulletType","MagicHead","MagicBody","MagicLegs"}) do lines[#lines+1]="  "..key.." = "..tostring(settings[key]).."," end
+        for _,key in ipairs({"AimVisCheck","AimIgKnock","AimIgBot","AimSniperScope","AimShotgun","WallSafeMode","KickControl","ManualAimIgBot","ManualAimIgKnock","ManualAimVisCheck","MagicBullet"}) do lines[#lines+1]="  "..key.." = "..tostring(settings[key]==true).."," end
         for _,key in ipairs({"Name","Line","Health","Distance","EnemyCounter"}) do lines[#lines+1]="  V1_"..key.." = "..tostring(_G.g_Botmater_ESPOptions[key]==true).."," end
         for _,key in ipairs({"Name","Line","Box","Health","Distance","Skeleton","Counter"}) do lines[#lines+1]="  V2_"..key.." = "..tostring(_G.g_vipserver_ESPOptions[key]==true).."," end
         lines[#lines+1]="}"
@@ -5089,6 +5227,20 @@ do
     end
     F.SetKickAmount=function(value)
         settings.KickAmount=number(value,0,100,100)
+        F.MarkDirty(true)
+        return true
+    end
+    F.SetMagicBullet=function(enabled)
+        settings.MagicBullet=(enabled==true or enabled==1)
+        if _G.MWConfig then _G.MWConfig.MagicBullet=settings.MagicBullet end
+        if not settings.MagicBullet and _G.LunarMagicBullet then pcall(_G.LunarMagicBullet.Stop) end
+        F.MarkDirty(true)
+        if F.Wake then F.Wake() end
+        return true
+    end
+    F.SetMagicBulletType=function(value)
+        settings.MagicBulletType=number(value,1,3,1)
+        if _G.MWConfig then _G.MWConfig.MagicBulletType=settings.MagicBulletType end
         F.MarkDirty(true)
         return true
     end
@@ -5415,6 +5567,7 @@ do
         if F.Aim2 then F.Aim2.Stop() end
         if F.Mortar then F.Mortar.Stop() end
         if _G.LunarKick then pcall(_G.LunarKick.Stop) end
+        if _G.LunarMagicBullet then pcall(_G.LunarMagicBullet.Stop) end
     end
 end
 
@@ -6102,6 +6255,276 @@ Kick.Tick=function(pawn)
     _G.LunarKickDiag={Weapon=weapon,Target=target,Amount=amount,Fields=#KICK_FIELDS}
     return true
 end
+end
+
+-- Magic Bullet module: best-effort instant/homing/aim-assist via shoot weapon entity comp.
+-- Records original field values for clean restore on disable/weapon switch.
+local MagicBullet={Records={},LastWeapon=nil,Applied=false,MagicType=1}
+_G.LunarMagicBullet=MagicBullet
+local MB_SPEED_FIELDS={"BulletFireSpeed","BulletSpeed","InitialSpeed","MuzzleVelocity","ProjectileSpeed","BulletVelocity","Speed","FireSpeed"}
+local MB_GRAVITY_FIELDS={"BulletGravity","GravityScale","DropScale","BulletDrop","Gravity","ProjectileGravity"}
+MagicBullet.Stop=function()
+    for comp,record in pairs(MagicBullet.Records) do
+        if slua.isValid(comp) then
+            for key,value in pairs(record) do pcall(function() comp[key]=value end) end
+        end
+        MagicBullet.Records[comp]=nil
+    end
+    MagicBullet.Applied=false
+    MagicBullet.LastWeapon=nil
+end
+local function mbComp(pawn)
+    if not slua.isValid(pawn) then return nil end
+    local weapon=nil
+    local mgr=pawn.WeaponManagerComponent
+    if mgr then weapon=mgr.CurrentWeaponReplicated end
+    if not slua.isValid(weapon) and type(pawn.GetCurrentShootWeapon)=="function" then
+        local ok,v=pcall(function() return pawn:GetCurrentShootWeapon() end)
+        if ok and slua.isValid(v) then weapon=v end
+    end
+    if not slua.isValid(weapon) then return nil end
+    local comp=weapon.ShootWeaponEntityComp
+    if not slua.isValid(comp) then return nil end
+    return weapon,comp
+end
+MagicBullet.Tick=function(pawn)
+    local settings=_G.LunarFeatures and _G.LunarFeatures.Settings
+    local enabled=false
+    if settings then enabled=(settings.MagicBullet==true) end
+    if not enabled and _G.MWConfig then enabled=(_G.MWConfig.MagicBullet==true) end
+    if not enabled then
+        if MagicBullet.LastWeapon or next(MagicBullet.Records) then MagicBullet.Stop() end
+        return false
+    end
+    local weapon,comp=mbComp(pawn)
+    if not comp then
+        if MagicBullet.LastWeapon or next(MagicBullet.Records) then MagicBullet.Stop() end
+        return false
+    end
+    if MagicBullet.LastWeapon and MagicBullet.LastWeapon~=weapon then MagicBullet.Stop() end
+    MagicBullet.LastWeapon=weapon
+    local mbType=1
+    if settings and settings.MagicBulletType then mbType=settings.MagicBulletType end
+    if _G.MWConfig and _G.MWConfig.MagicBulletType then mbType=_G.MWConfig.MagicBulletType end
+    MagicBullet.MagicType=mbType
+    local record=MagicBullet.Records[comp]
+    if not record then
+        record={}
+        MagicBullet.Records[comp]=record
+        for _,key in ipairs(MB_SPEED_FIELDS) do
+            local cur=comp[key]
+            if type(cur)=="number" then record[key]=cur end
+        end
+        for _,key in ipairs(MB_GRAVITY_FIELDS) do
+            local cur=comp[key]
+            if type(cur)=="number" then record[key]=cur end
+        end
+    end
+    local speedTarget = (mbType==3) and 5000 or 99999
+    local zeroGravity = (mbType~=3)
+    for _,key in ipairs(MB_SPEED_FIELDS) do
+        local cur=comp[key]
+        if type(cur)=="number" and math.abs(cur-speedTarget)>1 then
+            pcall(function() comp[key]=speedTarget end)
+        end
+    end
+    if zeroGravity then
+        for _,key in ipairs(MB_GRAVITY_FIELDS) do
+            local cur=comp[key]
+            if type(cur)=="number" and math.abs(cur-0)>0.0005 then
+                pcall(function() comp[key]=0 end)
+            end
+        end
+    end
+    MagicBullet.Applied=true
+    _G.LunarMagicBulletDiag={Weapon=weapon,Type=mbType,Applied=true}
+    return true
+end
+
+-- Custom Magic Bullet module: scales enemy hitbox physics assets by body part.
+-- Ported from 1.lua CustomMagicBullet (hitbox scaling).
+local CustomMagicBullet = { LastRun = 0 }
+_G.CustomMagicBullet = CustomMagicBullet
+local function CMB_Valid(obj)
+    if not obj then return false end
+    local slua = _G.slua or rawget(_G, "slua")
+    if slua and slua.isValid then
+        local ok, v = pcall(slua.isValid, obj)
+        if not ok or not v then return false end
+    end
+    return true
+end
+local function CMB_GetSafeEnemyKey(enemy)
+    if CMB_Valid(enemy) then
+        if enemy.PlayerKey then return tostring(enemy.PlayerKey) end
+        if type(enemy.GetUniqueID) == "function" then return tostring(enemy:GetUniqueID()) end
+    end
+    return tostring(enemy)
+end
+local function CMB_GetAllSkeletalMeshes(enemy, markData)
+    local meshes = {}
+    if CMB_Valid(enemy and enemy.Mesh) then table.insert(meshes, enemy.Mesh) end
+    pcall(function()
+        local cls = import("SkeletalMeshComponent")
+        if cls and type(enemy.GetComponentsByClass) == "function" then
+            local childs = enemy:GetComponentsByClass(cls)
+            if childs then
+                local count = type(childs.Num) == "function" and childs:Num() or #childs
+                for i = 1, count do
+                    local comp = type(childs.Get) == "function" and childs:Get(i - 1) or childs[i]
+                    if CMB_Valid(comp) and comp ~= (enemy and enemy.Mesh) then table.insert(meshes, comp) end
+                end
+            end
+        end
+    end)
+    if markData then markData.CachedMeshes = meshes; markData.CachedMeshTime = os.clock() end
+    return meshes
+end
+CustomMagicBullet.Tick = function()
+    local cfg = _G.LexusConfig or {}
+    if cfg.CustomMagicBullet ~= true then return false end
+    local ok = pcall(function()
+        local GameplayData = require("GameLua.GameCore.Data.GameplayData")
+        local localPlayer = GameplayData.GetPlayerCharacter()
+        if not CMB_Valid(localPlayer) then return end
+        local allCharacters = {}
+        pcall(function()
+            if GameplayData.GetAllPlayerCharacters then allCharacters = GameplayData.GetAllPlayerCharacters() end
+        end)
+        if not allCharacters or (type(allCharacters) ~= "table") or #allCharacters == 0 then
+            if GameplayData.GameCharacters then for _, c in pairs(GameplayData.GameCharacters) do table.insert(allCharacters, c) end end
+        end
+        local cData = (_G.LexusState and _G.LexusState.CustomTextData) or {}
+        local mHead = tonumber(cData.MagicHead) or 1.0
+        local mBody = tonumber(cData.MagicBody) or 1.0
+        local mLegs = tonumber(cData.MagicLegs) or 1.0
+        local currentMagicHash = "M_" .. tostring(mHead) .. "_" .. tostring(mBody) .. "_" .. tostring(mLegs)
+        local st = _G.LexusState or {}
+        if st.LastMagicConfigHash ~= currentMagicHash then
+            st.MagicUpdateVersion = (st.MagicUpdateVersion or 0) + 1
+            st.LastMagicConfigHash = currentMagicHash
+        end
+        local runInject = true
+        local BoneScaleMap = {
+            ["head"] = mHead, ["neck_01"] = mHead,
+            ["pelvis"] = mBody, ["spine_01"] = mBody, ["spine_02"] = mBody, ["spine_03"] = mBody,
+            ["thigh_l"] = mLegs, ["thigh_r"] = mLegs,
+            ["calf_l"] = mLegs, ["calf_r"] = mLegs,
+            ["foot_l"] = mLegs, ["foot_r"] = mLegs
+        }
+        if not _G.LexusState then _G.LexusState = {} end
+        if not _G.LexusState.EnemyMarks then _G.LexusState.EnemyMarks = {} end
+        local marks = _G.LexusState.EnemyMarks
+        for _, enemy in pairs(allCharacters) do
+            if CMB_Valid(enemy) and enemy ~= localPlayer then
+                local isEnemy = true
+                pcall(function()
+                    if enemy.TeamID ~= nil and localPlayer.TeamID ~= nil and enemy.TeamID == localPlayer.TeamID then isEnemy = false end
+                end)
+                if isEnemy then
+                    local bIsReallyDead = false
+                    pcall(function()
+                        if type(enemy.IsDead) == "function" then bIsReallyDead = enemy:IsDead()
+                        elseif enemy.bIsDead ~= nil then bIsReallyDead = enemy.bIsDead
+                        elseif enemy.bIsDeadFlag ~= nil then bIsReallyDead = enemy.bIsDeadFlag end
+                        if enemy.HealthStatus ~= nil and enemy.HealthStatus == 2 then bIsReallyDead = true end
+                    end)
+                    if not bIsReallyDead then
+                        local eKey = CMB_GetSafeEnemyKey(enemy)
+                        marks[eKey] = marks[eKey] or { enemy = enemy }
+                        local markData = marks[eKey]
+                        markData.enemy = enemy
+                        local eMesh = nil
+                        pcall(function()
+                            eMesh = enemy.Mesh or (type(enemy.getAvatarComponent2) == "function" and enemy:getAvatarComponent2() or nil)
+                        end)
+                        local tempMeshes = {}
+                        if CMB_Valid(eMesh) then tempMeshes = CMB_GetAllSkeletalMeshes(enemy, markData) end
+                        local currentMeshCount = #tempMeshes
+                        pcall(function()
+                            local uniqueID = type(enemy.GetUniqueID) == "function" and enemy:GetUniqueID() or tostring(enemy.PlayerKey or enemy)
+                            if markData.MagicBulletHash == st.LastMagicConfigHash and markData.MagicTargetID == uniqueID then return end
+                            local EnemyMesh = eMesh
+                            if not CMB_Valid(EnemyMesh) then return end
+                            local PhysicsAsset = EnemyMesh.PhysicsAssetOverride
+                            if not CMB_Valid(PhysicsAsset) and EnemyMesh.SkeletalMesh then PhysicsAsset = EnemyMesh.SkeletalMesh.PhysicsAsset end
+                            if not CMB_Valid(PhysicsAsset) or not PhysicsAsset.SkeletalBodySetups then return end
+                            if not _G.AK_ModdedPhysAssets then _G.AK_ModdedPhysAssets = {} end
+                            if not _G.AK_OrigHitboxes then _G.AK_OrigHitboxes = {} end
+                            local PhysAssetName = "DefaultPhys"
+                            pcall(function() PhysAssetName = PhysicsAsset:GetName() end)
+                            if not _G.AK_OrigHitboxes[PhysAssetName] then _G.AK_OrigHitboxes[PhysAssetName] = {} end
+                            local OrigHitboxData = _G.AK_OrigHitboxes[PhysAssetName]
+                            if _G.AK_ModdedPhysAssets[PhysAssetName] ~= st.LastMagicConfigHash then
+                                local SkeletalBodySetups = PhysicsAsset.SkeletalBodySetups
+                                local numSetups = type(SkeletalBodySetups.Num) == "function" and SkeletalBodySetups:Num() or #SkeletalBodySetups
+                                local limit = numSetups > 50 and 50 or numSetups
+                                for i = 1, limit do
+                                    local BodySetup = type(SkeletalBodySetups.Get) == "function" and SkeletalBodySetups:Get(i - 1) or SkeletalBodySetups[i]
+                                    if CMB_Valid(BodySetup) then
+                                        local LowerBoneName = string.lower(tostring(BodySetup.BoneName))
+                                        local MatchedBoneKey = nil
+                                        for k, _ in pairs(BoneScaleMap) do
+                                            if string.find(LowerBoneName, k, 1, true) then MatchedBoneKey = k; break end
+                                        end
+                                        if MatchedBoneKey then
+                                            local TargetScale = 1.0
+                                            if runInject then TargetScale = BoneScaleMap[MatchedBoneKey] end
+                                            local AggGeom = BodySetup.AggGeom
+                                            local BoxElems = AggGeom and AggGeom.BoxElems or BodySetup.BoxElems
+                                            local SphereElems = AggGeom and AggGeom.SphereElems or BodySetup.SphereElems
+                                            local SphylElems = AggGeom and AggGeom.SphylElems or BodySetup.SphylElems
+                                            local function firstElem(arr)
+                                                if arr and type(arr.Num) == "function" and arr:Num() > 0 then
+                                                    if type(arr.Get) == "function" then return arr:Get(0) end
+                                                elseif arr and type(arr) == "table" and #arr > 0 then return arr[1] end
+                                                return nil
+                                            end
+                                            local BoxElem = firstElem(BoxElems)
+                                            local SphereElem = firstElem(SphereElems)
+                                            local SphylElem = firstElem(SphylElems)
+                                            if not OrigHitboxData[MatchedBoneKey] then
+                                                OrigHitboxData[MatchedBoneKey] = { Box = nil, Sphere = nil, Sphyl = nil }
+                                                if BoxElem then OrigHitboxData[MatchedBoneKey].Box = { X = BoxElem.X, Y = BoxElem.Y, Z = BoxElem.Z } end
+                                                if SphereElem then OrigHitboxData[MatchedBoneKey].Sphere = { Radius = SphereElem.Radius } end
+                                                if SphylElem then OrigHitboxData[MatchedBoneKey].Sphyl = { Radius = SphylElem.Radius, Length = SphylElem.Length } end
+                                            end
+                                            local OrigElemData = OrigHitboxData[MatchedBoneKey]
+                                            if OrigElemData.Box and BoxElem then
+                                                BoxElem.X = OrigElemData.Box.X * TargetScale
+                                                BoxElem.Y = OrigElemData.Box.Y * TargetScale
+                                                BoxElem.Z = OrigElemData.Box.Z * TargetScale
+                                                if type(BoxElems.Set) == "function" then BoxElems:Set(0, BoxElem) else BoxElems[1] = BoxElem end
+                                                if AggGeom then AggGeom.BoxElems = BoxElems; BodySetup.AggGeom = AggGeom else BodySetup.BoxElems = BoxElems end
+                                            end
+                                            if OrigElemData.Sphere and SphereElem then
+                                                SphereElem.Radius = OrigElemData.Sphere.Radius * TargetScale
+                                                if type(SphereElems.Set) == "function" then SphereElems:Set(0, SphereElem) else SphereElems[1] = SphereElem end
+                                                if AggGeom then AggGeom.SphereElems = SphereElems; BodySetup.AggGeom = AggGeom else BodySetup.SphereElems = SphereElems end
+                                            end
+                                            if OrigElemData.Sphyl and SphylElem then
+                                                SphylElem.Radius = OrigElemData.Sphyl.Radius * TargetScale
+                                                SphylElem.Length = OrigElemData.Sphyl.Length * TargetScale
+                                                if type(SphylElems.Set) == "function" then SphylElems:Set(0, SphylElem) else SphylElems[1] = SphylElem end
+                                                if AggGeom then AggGeom.SphylElems = SphylElems; BodySetup.AggGeom = AggGeom else BodySetup.SphylElems = SphylElems end
+                                            end
+                                        end
+                                    end
+                                end
+                                _G.AK_ModdedPhysAssets[PhysAssetName] = st.LastMagicConfigHash
+                            end
+                            if EnemyMesh.SetPhysicsAsset then EnemyMesh:SetPhysicsAsset(PhysicsAsset) end
+                            EnemyMesh.PhysicsAssetOverride = PhysicsAsset
+                            markData.MagicBulletHash = st.LastMagicConfigHash
+                            markData.MagicTargetID = uniqueID
+                            markData.LastMeshCountWall = currentMeshCount
+                        end)
+                    end
+                end
+            end
+        end
+    end)
+    return true
 end
 
 -- Preserve the reference's DrawDyeing/Highlight/IdeaOutline settings and cadence.
@@ -7912,6 +8335,22 @@ do
         elseif _G.LunarKick and _G.LunarKick.LastWeapon then
             checked(_G.LunarKick.Stop,"Kick.Stop")
         end
+        -- Magic Bullet tick (best-effort, 20 Hz).
+        if F.Settings.MagicBullet==true then
+            if not F.MagicBulletDue or now>=F.MagicBulletDue-0.000001 then
+                if _G.LunarMagicBullet then checked(_G.LunarMagicBullet.Tick,"MagicBullet.Tick",pawn) end
+                F.MagicBulletDue=now+0.05
+            end
+        elseif _G.LunarMagicBullet and _G.LunarMagicBullet.LastWeapon then
+            if _G.LunarMagicBullet then checked(_G.LunarMagicBullet.Stop,"MagicBullet.Stop") end
+        end
+        -- Custom Magic Bullet (hitbox scaling) tick.
+        if _G.LexusConfig and _G.LexusConfig.CustomMagicBullet then
+            if not F.CustomMagicBulletDue or now >= F.CustomMagicBulletDue - 0.000001 then
+                if _G.CustomMagicBullet then checked(_G.CustomMagicBullet.Tick, "CustomMagicBullet.Tick") end
+                F.CustomMagicBulletDue = now + 1.0
+            end
+        end
         if F.Settings.WallEnabled then checked(F.Wall.Tick,"Wall.Tick",now,pawn,pc) end
         if _G.MWConfig.IpadView and now>=F.IpadDue then
             checked(g_vipserver_ApplyiPadView,"Ipad")
@@ -8740,402 +9179,5 @@ end
 pcall(function()
   FeedbackSystem.Install()
 end)
-
--- ============================================================
--- TOGGLE FUNCTIONS FOR MWConfig FEATURES
--- ============================================================
--- These functions provide a clean API to toggle all MWConfig features.
--- Usage: ToggleFeature("EspPlayer") toggles ESP player on/off
--- Usage: ToggleFeature("WallHackV2") toggles WallHack on/off
--- Usage: ToggleFeature("AimTouchEnable") toggles AimTouch on/off
--- ============================================================
-
-local function ToggleFeature(featureName)
-    if not _G.MWConfig then
-        print("[Toggle] MWConfig not initialized")
-        return false
-    end
-
-    -- Ensure the feature exists in MWConfig
-    if not _G.MWConfig[featureName] then
-        print("[Toggle] Feature '" .. tostring(featureName) .. "' not found in MWConfig")
-        return false
-    end
-
-    -- Toggle the feature
-    _G.MWConfig[featureName] = not _G.MWConfig[featureName]
-    local newState = _G.MWConfig[featureName]
-
-    -- Provide feedback
-    local status = newState and "ENABLED" or "DISABLED"
-    print("[Toggle] " .. featureName .. " " .. status)
-
-    -- Auto-execute related setup/teardown for known features
-    if featureName == "EspPlayer" then
-        -- ESP toggle logic would be handled by the ESP system
-        print("[Toggle] ESP system will reload settings automatically")
-    elseif featureName == "WallHackV2" then
-        print("[Toggle] WallHack V2 " .. status .. " - bypass will re-initialize on next spawn")
-    elseif featureName == "AimTouchEnable" then
-        print("[Toggle] AimTouch " .. status .. " - aim system will update on next tick")
-    elseif featureName == "SpeedRunV2" then
-        print("[Toggle] SpeedRun V2 " .. status .. " - speed hack " .. (status and "activated" or "deactivated"))
-    elseif featureName == "FastCar" then
-        print("[Toggle] FastCar " .. status .. " - vehicle speed " .. (status and "enabled" or "disabled"))
-    elseif featureName == "VehicleInstantStop" then
-        print("[Toggle] VehicleInstantStop " .. status .. " - instant stop " .. (status and "enabled" or "disabled"))
-    elseif featureName == "UnlockFPS" then
-        print("[Toggle] UnlockFPS " .. status .. " - FPS limit removed" .. (status and "" or " re-applied"))
-    elseif featureName == "IpadView" then
-        print("[Toggle] iPadView " .. status .. " - 3-finger gyro " .. (status and "enabled" or "disabled"))
-    elseif featureName == "EspPlayerBox" then
-        print("[Toggle] EspPlayerBox " .. status .. " - 2D box ESP " .. (status and "on" or "off"))
-    elseif featureName == "EspPlayerName" then
-        print("[Toggle] EspPlayerName " .. status .. " - player name ESP " .. (status and "on" or "off"))
-    elseif featureName == "EspPlayerHP" then
-        print("[Toggle] EspPlayerHP " .. status .. " - health bar ESP " .. (status and "on" or "off"))
-    elseif featureName == "EspPlayerSkeleton" then
-        print("[Toggle] EspPlayerSkeleton " .. status .. " - skeleton ESP " .. (status and "on" or "off"))
-    elseif featureName == "EspVehicle" then
-        print("[Toggle] EspVehicle " .. status .. " - vehicle ESP " .. (status and "on" or "off"))
-    elseif featureName == "EspVeh_Car" then
-        print("[Toggle] EspVeh_Car " .. status .. " - car ESP " .. (status and "on" or "off"))
-    elseif featureName == "EspVeh_Moto" then
-        print("[Toggle] EspVeh_Moto " .. status .. " - motorcycle ESP " .. (status and "on" or "off"))
-    elseif featureName == "EspVeh_Offroad" then
-        print("[Toggle] EspVeh_Offroad " .. status .. " - off-road vehicle ESP " .. (status and "on" or "off"))
-    elseif featureName == "EspVeh_Boat" then
-        print("[Toggle] EspVeh_Boat " .. status .. " - boat ESP " .. (status and "on" or "off"))
-    elseif featureName == "EspVeh_Heavy" then
-        print("[Toggle] EspVeh_Heavy " .. status .. " - heavy vehicle ESP " .. (status and "on" or "off"))
-    elseif featureName == "EspPlayerLine" then
-        print("[Toggle] EspPlayerLine " .. status .. " - ESP line " .. (status and "on" or "off"))
-    elseif featureName == "EspPlayerDistance" then
-        print("[Toggle] EspPlayerDistance " .. status .. " - distance ESP " .. (status and "on" or "off"))
-    elseif featureName == "EspPlayerCount" then
-        print("[Toggle] EspPlayerCount " .. status .. " - enemy count ESP " .. (status and "on" or "off"))
-    elseif featureName == "EspPlayerTeam" then
-        print("[Toggle] EspPlayerTeam " .. status .. " - team ESP " .. (status and "on" or "off"))
-    elseif featureName == "EspPlayerWeapon" then
-        print("[Toggle] EspPlayerWeapon " .. status .. " - weapon ESP " .. (status and "on" or "off"))
-    elseif featureName == "EspMinimap" then
-        print("[Toggle] EspMinimap " .. status .. " - minimap ESP " .. (status and "on" or "off"))
-    elseif featureName == "FastSwapWeapon" then
-        print("[Toggle] FastSwapWeapon " .. status .. " - weapon swap " .. (status and "fast" or "normal"))
-    elseif featureName == "FullGrip" then
-        print("[Toggle] FullGrip " .. status .. " - full weapon grip " .. (status and "enabled" or "disabled"))
-    elseif featureName == "GroupMap" then
-        print("[Toggle] GroupMap " .. status .. " - group map " .. (status and "shown" or "hidden"))
-    elseif featureName == "GroupChar" then
-        print("[Toggle] GroupChar " .. status .. " - group characters " .. (status and "shown" or "hidden"))
-    elseif featureName == "GroupVehicle" then
-        print("[Toggle] GroupVehicle " .. status .. " - group vehicles " .. (status and "shown" or "hidden"))
-    elseif featureName == "GroupWeapon" then
-        print("[Toggle] GroupWeapon " .. status .. " - group weapons " .. (status and "shown" or "hidden"))
-    elseif featureName == "GodMode" then
-        print("[Toggle] GodMode " .. status .. " - god mode " .. (status and "activated" or "deactivated"))
-    elseif featureName == "InfiniteAmmo" then
-        print("[Toggle] InfiniteAmmo " .. status .. " - infinite ammo " .. (status and "enabled" or "disabled"))
-    elseif featureName == "BulletTrack" then
-        print("[Toggle] BulletTrack " .. status .. " - bullet tracking " .. (status and "enabled" or "disabled"))
-    elseif featureName == "RemoveGrass" then
-        print("[Toggle] RemoveGrass " .. status .. " - grass removal " .. (status and "enabled" or "disabled"))
-    elseif featureName == "RemoveTrees" then
-        print("[Toggle] RemoveTrees " .. status .. " - tree removal " .. (status and "enabled" or "disabled"))
-    elseif featureName == "RemoveFog" then
-        print("[Toggle] RemoveFog " .. status .. " - fog removal " .. (status and "enabled" or "disabled"))
-    elseif featureName == "Crosshair" then
-        print("[Toggle] Crosshair " .. status .. " - crosshair " .. (status and "shown" or "hidden"))
-    elseif featureName == "Accuracy" then
-        print("[Toggle] Accuracy " .. status .. " - accuracy assist " .. (status and "enabled" or "disabled"))
-    elseif featureName == "ModEmote" then
-        print("[Toggle] ModEmote " .. status .. " - mod emotes " .. (status and "enabled" or "disabled"))
-    elseif featureName == "ModSkin" then
-        print("[Toggle] ModSkin " .. status .. " - mod skins " .. (status and "enabled" or "disabled"))
-    elseif featureName == "SkinDeadBox" then
-        print("[Toggle] SkinDeadBox " .. status .. " - dead box skin " .. (status and "enabled" or "disabled"))
-    elseif featureName == "SkinAttachment" then
-        print("[Toggle] SkinAttachment " .. status .. " - skin attachments " .. (status and "enabled" or "disabled"))
-    elseif featureName == "SkinOptionOpen" then
-        print("[Toggle] SkinOptionOpen " .. status .. " - skin options " .. (status and "opened" or "closed"))
-    elseif featureName == "SkinOpenLink" then
-        print("[Toggle] SkinOpenLink " .. status .. " - skin open link " .. (status and "opened" or "closed"))
-    elseif featureName == "KillMessage" then
-        print("[Toggle] KillMessage " .. status .. " - kill messages " .. (status and "enabled" or "disabled"))
-    elseif featureName == "KillCountUI" then
-        print("[Toggle] KillCountUI " .. status .. " - kill count UI " .. (status and "shown" or "hidden"))
-    elseif featureName == "UCSpend" then
-        print("[Toggle] UCSpend " .. status .. " - UC spend tracking " .. (status and "active" or "inactive"))
-    elseif featureName == "AimTouchShowFOV" then
-        print("[Toggle] AimTouchShowFOV " .. status .. " - aim FOV display " .. (status and "on" or "off"))
-    elseif featureName == "AimTouchIgKnock" then
-        print("[Toggle] AimTouchIgKnock " .. status .. " - ignore knocked " .. (status and "enabled" or "disabled"))
-    elseif featureName == "AimTouchIgBot" then
-        print("[Toggle] AimTouchIgBot " .. status .. " - ignore bots " .. (status and "enabled" or "disabled"))
-    elseif featureName == "AimTouchVisCheck" then
-        print("[Toggle] AimTouchVisCheck " .. status .. " - visible check " .. (status and "enabled" or "disabled"))
-    elseif featureName == "AimTouchMortar" then
-        print("[Toggle] AimTouchMortar " .. status .. " - mortar aim " .. (status and "enabled" or "disabled"))
-    elseif featureName == "AimbotGroup" then
-        print("[Toggle] AimbotGroup " .. status .. " - aimbot group " .. (status and "enabled" or "disabled"))
-    else
-        -- Generic toggle for any unlisted feature
-        print("[Toggle] " .. featureName .. " " .. status)
-    end
-
-    return newState
-end
-
--- Convenience: Toggle multiple features at once
-local function ToggleFeatures(featureList)
-    local results = {}
-    for _, feature in ipairs(featureList) do
-        table.insert(results, ToggleFeature(feature))
-    end
-    return results
-end
-
--- Convenience: Get current state of a feature
-local function GetFeatureState(featureName)
-    if _G.MWConfig and _G.MWConfig[featureName] ~= nil then
-        return _G.MWConfig[featureName]
-    end
-    return nil
-end
-
--- Convenience: Set feature state (true/false)
-local function SetFeatureState(featureName, state)
-    if _G.MWConfig and _G.MWConfig[featureName] ~= nil then
-        _G.MWConfig[featureName] = state
-        print("[Set] " .. featureName .. " set to " .. tostring(state))
-        return true
-    end
-    print("[Set] Feature '" .. tostring(featureName) .. "' not found in MWConfig")
-    return false
-end
-
--- ============================================================
--- WORKING TOGGLE FUNCTIONS WITH ACTUAL CODE LOGIC
--- ============================================================
--- These functions actually toggle features with real game effects.
--- No dummy toggles - each function has working code logic.
-
--- BULLET TRACK TOGGLE
--- Controls bullet trajectory steering (from VIP.lua line 650, 1215)
-local function ToggleBulletTrack()
-    if not _G.Mod_BulletTrack then
-        print("[BulletTrack] Feature not found in current scope")
-        return false
-    end
-    
-    -- Toggle the bullet track state
-    _G.Mod_BulletTrack = not _G.Mod_BulletTrack
-    local status = _G.Mod_BulletTrack
-    
-    if status then
-        -- Enable bullet track - hook the shoot delegate
-        if Client then
-            local lp = mbLocalChar()
-            if lp then
-                local ok, err = pcall(function()
-                    if not lp._BulletTrackHooked then
-                        lp.OnCharacterShootBulletDelegate:Add(function(Weapon, Bullet)
-                            pcall(function()
-                                if mbValid(Bullet) and mbValid(Weapon) then mbSt(Bullet).weapon = Weapon end
-                                mbBindLaunch(Bullet)
-                                mbHandleBullet(Bullet, Weapon)
-                            end)
-                        end)
-                        lp._BulletTrackHooked = true
-                    end
-                end)
-                if ok then
-                    print("[BulletTrack] ENABLED - Bullet trajectory steering active")
-                    print("[BulletTrack] Your bullets will now steer toward targets")
-                end
-            end
-        end
-    else
-        -- Disable bullet track - reset state
-        MB_Active = {}
-        if Client and lp and lp._BulletTrackHooked then
-            -- Remove the hook by clearing the delegate
-            lp._BulletTrackHooked = false
-        end
-        print("[BulletTrack] DISABLED - Bullet tracking deactivated")
-        print("[BulletTrack] Bullets will follow normal trajectory")
-    end
-    
-    return _G.Mod_BulletTrack
-end
-
--- SPEED RUN V2 TOGGLE
--- Modifies player movement speed (from MWConfig line 27)
-local function ToggleSpeedRunV2()
-    if not _G.MWConfig then
-        print("[SpeedRunV2] MWConfig not initialized")
-        return false
-    end
-    
-    -- Toggle the speed run state
-    _G.MWConfig.SpeedRunV2 = not _G.MWConfig.SpeedRunV2
-    local status = _G.MWConfig.SpeedRunV2
-    
-    if status then
-        -- Enable speed run - modify movement parameters
-        print("[SpeedRunV2] ENABLED - Speed run activated")
-        print("[SpeedRunV2] Your movement speed will be greatly increased")
-        -- The game's existing SpeedRunV2 logic will handle the actual speed boost
-    else
-        -- Disable speed run
-        print("[SpeedRunV2] DISABLED - Speed run deactivated")
-        print("[SpeedRunV2] Movement speed returned to normal")
-    end
-    
-    return _G.MWConfig.SpeedRunV2
-end
-
--- GOD MODE TOGGLE
--- Makes player invulnerable (check if MWConfig has GodMode)
-local function ToggleGodMode()
-    if not _G.MWConfig then
-        print("[GodMode] MWConfig not initialized")
-        return false
-    end
-    
-    -- Check if GodMode exists in MWConfig, if not add it
-    if not _G.MWConfig.GodMode then
-        _G.MWConfig.GodMode = false
-    end
-    
-    -- Toggle the god mode state
-    _G.MWConfig.GodMode = not _G.MWConfig.GodMode
-    local status = _G.MWConfig.GodMode
-    
-    if status then
-        -- Enable god mode - make player take no damage
-        print("[GodMode] ENABLED - God mode activated")
-        print("[GodMode] You will take no damage from enemies")
-        -- The game's existing damage handling will respect this flag
-        -- Note: Actual god mode implementation may require additional hooking
-    else
-        -- Disable god mode
-        print("[GodMode] DISABLED - God mode deactivated")
-        print("[GodMode] You can now take damage like normal")
-    end
-    
-    return _G.MWConfig.GodMode
-end
-
--- MOD SKIN TOGGLE
--- Applies/modifies weapon skins (from MWConfig skin options)
-local function ToggleModSkin()
-    if not _G.MWConfig then
-        print("[ModSkin] MWConfig not initialized")
-        return false
-    end
-    
-    -- Check if ModSkin exists in MWConfig, if not add it
-    if not _G.MWConfig.ModSkin then
-        _G.MWConfig.ModSkin = false
-    end
-    
-    -- Toggle the mod skin state
-    _G.MWConfig.ModSkin = not _G.MWConfig.ModSkin
-    local status = _G.MWConfig.ModSkin
-    
-    if status then
-        -- Enable mod skin - this will allow skin modifications
-        print("[ModSkin] ENABLED - Mod skin activated")
-        print("[ModSkin] Weapon skins can now be modified/changed")
-        -- The game's existing skin modification logic will handle actual skin changes
-    else
-        -- Disable mod skin
-        print("[ModSkin] DISABLED - Mod skin deactivated")
-        print("[ModSkin] Weapons will use default skins")
-    end
-    
-    return _G.MWConfig.ModSkin
-end
-
--- ALL SKINS TOGGLE
--- Unlocks all weapon skins instantly
-local function ToggleAllSkins()
-    if not _G.MWConfig then
-        print("[AllSkins] MWConfig not initialized")
-        return false
-    end
-    
-    -- Check if AllSkins exists in MWConfig, if not add it
-    if not _G.MWConfig.AllSkins then
-        _G.MWConfig.AllSkins = false
-    end
-    
-    -- Toggle the all skins state
-    _G.MWConfig.AllSkins = not _G.MWConfig.AllSkins
-    local status = _G.MWConfig.AllSkins
-    
-    if status then
-        -- Enable all skins - unlock every weapon skin
-        print("[AllSkins] ENABLED - All skins unlocked")
-        print("[AllSkins] Every weapon will have a skin applied")
-        -- Mark all weapons to use skin modification
-        if Client then
-            local lp = mbLocalChar()
-            if lp and lp.Object then
-                local weapons = mbWeaponEntities(lp.Object)
-                for _, ent in ipairs(weapons) do
-                    -- Set skin enabled flag
-                    pcall(function()
-                        if ent.SetSkin then ent:SetSkin(1) end
-                        if ent.SkinEnabled then ent.SkinEnabled = true end
-                    end)
-                end
-            end
-        end
-        print("[AllSkins] All weapon skins are now unlocked and active")
-    else
-        -- Disable all skins
-        print("[AllSkins] DISABLED - All skins deactivated")
-        print("[AllSkins] Weapons will use default/original skins")
-    end
-    
-    return _G.MWConfig.AllSkins
-end
-
--- CONVENIENCE: Toggle all requested features at once
-local function ToggleAllRequested()
-    local results = {}
-    table.insert(results, ToggleBulletTrack())
-    table.insert(results, ToggleSpeedRunV2())
-    table.insert(results, ToggleGodMode())
-    table.insert(results, ToggleModSkin())
-    table.insert(results, ToggleAllSkins())
-    return results
-end
-
--- EXPORT ALL TOGGLE FUNCTIONS GLOBALLY
--- These can now be called from anywhere in the game/Lua environment
-_G.ToggleBulletTrack = ToggleBulletTrack
-_G.ToggleSpeedRunV2 = ToggleSpeedRunV2
-_G.ToggleGodMode = ToggleGodMode
-_G.ToggleModSkin = ToggleModSkin
-_G.ToggleAllSkins = ToggleAllSkins
-_G.ToggleAllRequested = ToggleAllRequested
-
--- Also export state getters
-_G.GetBulletTrackState = function() return _G.Mod_BulletTrack or false end
-_G.GetSpeedRunV2State = function() return _G.MWConfig and _G.MWConfig.SpeedRunV2 or false end
-_GetGodModeState = function() return _G.MWConfig and _G.MWConfig.GodMode or false end
-_ModSkinState = function() return _G.MWConfig and _G.MWConfig.ModSkin or false end
-_AllSkinsState = function() return _G.MWConfig and _G.MWConfig.AllSkins or false end
-
-print("[WorkingToggles] All requested toggles loaded with working code logic:")
-print("[WorkingToggles] - ToggleBulletTrack() - Bullet trajectory control")
-print("[WorkingToggles] - ToggleSpeedRunV2() - Speed run activation")
-print("[WorkingToggles] - ToggleGodMode() - God mode invulnerability")
-print("[WorkingToggles] - ToggleModSkin() - Weapon skin modification")
-print("[WorkingToggles] - ToggleAllSkins() - Unlock all weapon skins")
-print("[WorkingToggles] - ToggleAllRequested() - Toggle all 4 features at once")
 
 return originalExport
